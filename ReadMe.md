@@ -54,7 +54,6 @@ Content-Type: application/json
 - [Client integration](#client-integration)
 - [Artisan commands](#artisan-commands)
 - [Testing](#testing)
-- [What v2 changed](#what-v2-changed)
 - [FAQ](#faq)
 - [License](#license)
 
@@ -601,25 +600,6 @@ composer format      # Laravel Pint
 ```
 
 The bundled Pest suite covers cache hit/miss, lock contention, payload mismatch, scope isolation, streamed-response skipping, header name override, and alert threshold firing. Run it as a living spec for how the middleware behaves.
-
----
-
-## What v2 changed
-
-A complete rewrite with breaking changes — migration notes live in [CHANGELOG.md](CHANGELOG.md).
-
-| | v1 | v2 |
-| --- | --- | --- |
-| Payload hash | `md5(json_encode($request->all()))` — order-dependent | SHA-256 over recursively sorted payload + file fingerprints |
-| Scoping | Global — keys leaked across users | `user_route` default, pluggable `ScopeResolver` |
-| Response cache | Cloned `Symfony\Response` objects | Portable `{class, status, headers, content}` struct |
-| Header name | Hardcoded | Config-driven |
-| Key validation | UUID regex | `uuid` / `ulid` / regex / custom `KeyValidator` |
-| Per-route config | Not supported | `idempotent:optional,ttl=300,scope=user` |
-| Streamed/binary responses | Corrupted cache silently | Skipped |
-| Inspector | Hard require | `suggest` |
-| Static analysis | — | PHPStan level max |
-| Tests | — | 21 Pest tests across unit + feature |
 
 ---
 
