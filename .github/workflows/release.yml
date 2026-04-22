@@ -1,0 +1,94 @@
+name: Deploy & Release
+
+# Flow:
+#   1. Someone labels an open PR with "deploy" → GitHub auto-merge is enabled.
+#   2. Auto-merge waits for required checks, then squash-merges and deletes the branch.
+#   3. Once the deploy-labeled PR is merged, a new SemVer release is cut.
+#
+# Version bump rules (based on PR labels present at merge time):
+#   - label "major"  → v{M+1}.0.0
+#   - label "minor"  → v{M}.{m+1}.0
+#   - default        → v{M}.{m}.{p+1}
+#
+# Repository prerequisites:
+#   - Settings → General → "Allow auto-merge" must be enabled.
+#   - main branch should have at least one required status check, otherwise
+#     GitHub's auto-merge has nothing to wait for and `--auto` will fail.
+
+on:
+  pull_request:
+    types: [labeled, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge
+    if: >-
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'deploy' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge (squash + delete branch)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --repo "$GITHUB_REPOSITORY"
+
+  release:
+    name: Cut release
+    if: >-
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'deploy')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+
+          last_tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
+
+          if [ -z "$last_tag" ]; then
+            next="v1.0.0"
+          else
+            IFS='.' read -r major minor patch <<<"${last_tag#v}"
+            if printf '%s' "$LABELS" | grep -qi '"major"'; then
+              next="v$((major + 1)).0.0"
+            elif printf '%s' "$LABELS" | grep -qi '"minor"'; then
+              next="v${major}.$((minor + 1)).0"
+            else
+              next="v${major}.${minor}.$((patch + 1))"
+            fi
+          fi
+
+          echo "tag=$next" >>"$GITHUB_OUTPUT"
+          echo "Previous: ${last_tag:-<none>}"
+          echo "Next:     $next"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          gh release create "$TAG" \
+            --target main \
+            --title "$TAG — $PR_TITLE" \
+            --generate-notes \
+            --latest
