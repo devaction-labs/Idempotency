@@ -2,6 +2,14 @@
 
 ## [2.0.0] - 2026-04-22
 
+### BREAKING
+- Package renamed from `infinitypaul/idempotency-laravel` → **`devaction-labs/idempotency`**
+- Namespace renamed from `Infinitypaul\Idempotency\` → **`DevactionLabs\Idempotency\`**
+- Consumers must update their `composer require` and any `use` statements.
+  Facade alias (`Idempotency`) and middleware alias (`idempotent`) are unchanged.
+
+## [1.0.0] - 2026-04-22
+
 Major rewrite. Everything below is a **breaking change** unless noted.
 
 ### Added

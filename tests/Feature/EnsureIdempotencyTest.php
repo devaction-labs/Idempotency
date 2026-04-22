@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use DevactionLabs\Idempotency\Events\IdempotencyAlertFired;
+use DevactionLabs\Idempotency\Logging\EventType;
+use DevactionLabs\Idempotency\Middleware\EnsureIdempotency;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
-use Infinitypaul\Idempotency\Events\IdempotencyAlertFired;
-use Infinitypaul\Idempotency\Logging\EventType;
-use Infinitypaul\Idempotency\Middleware\EnsureIdempotency;
 
 beforeEach(function () {
     Route::middleware(EnsureIdempotency::class)->post('/pay', function () {

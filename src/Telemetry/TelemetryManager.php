@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Telemetry;
+namespace DevactionLabs\Idempotency\Telemetry;
 
+use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
+use DevactionLabs\Idempotency\Telemetry\Drivers\InspectorTelemetryDriver;
+use DevactionLabs\Idempotency\Telemetry\Drivers\NullTelemetryDriver;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Manager;
-use Infinitypaul\Idempotency\Contracts\TelemetryDriver;
-use Infinitypaul\Idempotency\Telemetry\Drivers\InspectorTelemetryDriver;
-use Infinitypaul\Idempotency\Telemetry\Drivers\NullTelemetryDriver;
 use Inspector\Laravel\Facades\Inspector;
 use InvalidArgumentException;
 use RuntimeException;

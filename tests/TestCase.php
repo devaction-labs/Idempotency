@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Tests;
+namespace DevactionLabs\Idempotency\Tests;
 
-use Infinitypaul\Idempotency\IdempotencyServiceProvider;
+use DevactionLabs\Idempotency\IdempotencyServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra

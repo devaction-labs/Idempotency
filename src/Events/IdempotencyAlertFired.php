@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Events;
+namespace DevactionLabs\Idempotency\Events;
 
+use DevactionLabs\Idempotency\Logging\EventType;
 use Illuminate\Foundation\Events\Dispatchable;
-use Infinitypaul\Idempotency\Logging\EventType;
 
 final class IdempotencyAlertFired
 {

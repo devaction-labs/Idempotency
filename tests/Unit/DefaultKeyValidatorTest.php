@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Infinitypaul\Idempotency\Support\DefaultKeyValidator;
+use DevactionLabs\Idempotency\Support\DefaultKeyValidator;
 
 it('validates UUIDs', function () {
     $v = new DefaultKeyValidator('uuid', 255);

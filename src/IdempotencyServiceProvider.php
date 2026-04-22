@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency;
+namespace DevactionLabs\Idempotency;
 
+use DevactionLabs\Idempotency\Console\FlushCommand;
+use DevactionLabs\Idempotency\Contracts\KeyValidator;
+use DevactionLabs\Idempotency\Contracts\PayloadHasher;
+use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
+use DevactionLabs\Idempotency\Contracts\ScopeResolver;
+use DevactionLabs\Idempotency\Middleware\EnsureIdempotency;
+use DevactionLabs\Idempotency\Support\DefaultKeyValidator;
+use DevactionLabs\Idempotency\Support\DefaultPayloadHasher;
+use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
+use DevactionLabs\Idempotency\Support\DefaultScopeResolver;
+use DevactionLabs\Idempotency\Support\Scope;
+use DevactionLabs\Idempotency\Telemetry\TelemetryManager;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
-use Infinitypaul\Idempotency\Console\FlushCommand;
-use Infinitypaul\Idempotency\Contracts\KeyValidator;
-use Infinitypaul\Idempotency\Contracts\PayloadHasher;
-use Infinitypaul\Idempotency\Contracts\ResponseSerializer;
-use Infinitypaul\Idempotency\Contracts\ScopeResolver;
-use Infinitypaul\Idempotency\Middleware\EnsureIdempotency;
-use Infinitypaul\Idempotency\Support\DefaultKeyValidator;
-use Infinitypaul\Idempotency\Support\DefaultPayloadHasher;
-use Infinitypaul\Idempotency\Support\DefaultResponseSerializer;
-use Infinitypaul\Idempotency\Support\DefaultScopeResolver;
-use Infinitypaul\Idempotency\Support\Scope;
-use Infinitypaul\Idempotency\Telemetry\TelemetryManager;
 
 final class IdempotencyServiceProvider extends ServiceProvider
 {

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
+use DevactionLabs\Idempotency\Contracts\PayloadHasher;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Infinitypaul\Idempotency\Contracts\PayloadHasher;
 
 final class DefaultPayloadHasher implements PayloadHasher
 {

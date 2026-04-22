@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use DevactionLabs\Idempotency\Middleware\EnsureIdempotency;
 use Illuminate\Support\Facades\Route;
-use Infinitypaul\Idempotency\Middleware\EnsureIdempotency;
 
 it('isolates cached responses per route when scope=route', function () {
     config(['idempotency.scope' => 'route']);

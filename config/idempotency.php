@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Infinitypaul\Idempotency\Support\Scope;
+use DevactionLabs\Idempotency\Support\Scope;
 
 return [
     /*
@@ -90,7 +90,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Pattern: 'uuid' | 'ulid' | a regex string | a callable FQCN implementing
-    | Infinitypaul\Idempotency\Contracts\KeyValidator. Keep the allow-list of
+    | DevactionLabs\Idempotency\Contracts\KeyValidator. Keep the allow-list of
     | formats tight; rejecting malformed keys early avoids cache pollution.
     |
     */

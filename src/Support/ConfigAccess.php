@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
 use Illuminate\Contracts\Config\Repository as Config;
 

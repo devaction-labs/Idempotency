@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Console;
+namespace DevactionLabs\Idempotency\Console;
 
+use DevactionLabs\Idempotency\IdempotencyManager;
 use Illuminate\Console\Command;
-use Infinitypaul\Idempotency\IdempotencyManager;
 
 final class FlushCommand extends Command
 {

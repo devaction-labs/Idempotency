@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Telemetry\Drivers;
+namespace DevactionLabs\Idempotency\Telemetry\Drivers;
 
-use Infinitypaul\Idempotency\Contracts\TelemetryDriver;
+use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
 use Inspector\Laravel\Facades\Inspector;
 use Inspector\Models\Segment;
 
