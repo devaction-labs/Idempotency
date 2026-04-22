@@ -54,6 +54,7 @@ Content-Type: application/json
 - [Client integration](#client-integration)
 - [Artisan commands](#artisan-commands)
 - [Testing](#testing)
+- [Deployment & hardening](#deployment--hardening)
 - [FAQ](#faq)
 - [License](#license)
 
@@ -600,6 +601,115 @@ composer format      # Laravel Pint
 ```
 
 The bundled Pest suite covers cache hit/miss, lock contention, payload mismatch, scope isolation, streamed-response skipping, header name override, and alert threshold firing. Run it as a living spec for how the middleware behaves.
+
+---
+
+## Deployment & hardening
+
+The middleware is safe by default, but a few production choices change the threat model. This section flags them so you don't learn about them in an incident.
+
+### 1. Isolate the cache store
+
+The response cache lives in whatever Laravel cache store you configure. If that store is **shared with other applications** (common with a team Redis), those apps can write keys under `idempotency:*` and your API will serve them.
+
+Three options, pick one:
+
+```dotenv
+# A) Dedicated store — best
+IDEMPOTENCY_CACHE_STORE=idempotency
+```
+
+```php
+// config/cache.php
+'stores' => [
+    'idempotency' => [
+        'driver'     => 'redis',
+        'connection' => 'idempotency',  // a distinct Redis DB or instance
+    ],
+],
+```
+
+```php
+// B) Shared store but prefixed — good enough
+'cache' => [
+    'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME'), '_').'_cache'),
+],
+```
+
+```text
+# C) Do nothing — only safe when the cache store belongs to this app alone
+```
+
+A cross-app key collision cannot RCE you — the serializer constructs `JsonResponse`/`Response` explicitly, never `new $class()` — but it **can** serve an attacker-controlled 200 body to your clients. Isolation is the fix.
+
+### 2. Trust your proxies (if using `scope=ip`)
+
+`DefaultScopeResolver` calls `$request->ip()`. Behind a reverse proxy (nginx, ALB, Cloudflare), that returns the proxy's IP unless Laravel knows to trust it.
+
+```php
+// bootstrap/app.php — Laravel 11+
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->trustProxies(at: '*'); // or specific subnets
+})
+```
+
+Without this, every request from any user looks like the same IP and their keys collide.
+
+### 3. Pair with `RateLimiter` for abuse-resistant endpoints
+
+Idempotency prevents duplicate *processing*. It does **not** prevent key-space flooding — an attacker can still fill your cache with random keys until the TTL saves you. Combine with Laravel's rate limiter for anything public:
+
+```php
+// routes/api.php
+Route::post('/payments', [PaymentController::class, 'store'])
+    ->middleware(['auth:api', 'throttle:payments', 'idempotent']);
+```
+
+```php
+// app/Providers/AppServiceProvider.php
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+
+public function boot(): void
+{
+    RateLimiter::for('payments', function (Request $request) {
+        return Limit::perMinute(60)
+            ->by($request->user()?->id ?: $request->ip())
+            ->response(fn () => response()->json(['error' => 'Too many requests'], 429));
+    });
+}
+```
+
+Order matters: `throttle` first keeps abusers out of idempotency storage entirely.
+
+### 4. Don't run `scope=global` in production with auth
+
+`scope=global` collapses the key namespace across all users — user A's `Idempotency-Key` and user B's collide. The middleware logs a warning the first time it sees an authenticated request under this scope, but **do not ship it** unless your API is truly single-tenant and unauthenticated.
+
+```dotenv
+IDEMPOTENCY_SCOPE=user_route   # default and recommended
+```
+
+### 5. Lock driver reality check
+
+Auto-merge's atomic locks need a cache store that supports them. Quick rundown:
+
+| Driver | Locks? | Notes |
+| --- | --- | --- |
+| `redis` | Yes | Best. Use a dedicated DB. |
+| `memcached` | Yes | Fine. |
+| `database` | Yes | Works, but contention is worse under load. Use when you already have a DB and no Redis. |
+| `dynamodb` | Yes | Fine, watch your provisioned capacity. |
+| `array` | Yes — per process | Never across workers. Tests only. |
+| `file` | No | Will throw at runtime. |
+
+### 6. Octane / long-running workers
+
+The middleware holds no cross-request state. The only static state is a one-shot "warned about global scope" flag in `DefaultScopeResolver` — that re-emits correctly after each Octane worker reload. No action needed.
+
+### 7. Do not log payloads in alerts
+
+The `IdempotencyAlertFired` event ships `context` which already excludes request bodies. If you extend it with your own listener, avoid dumping the full payload — those events go to whatever sink you configured and may contain PII or secrets.
 
 ---
 
