@@ -1,23 +1,29 @@
 name: Deploy & Release
 
-# Flow:
-#   1. Someone labels an open PR with "deploy" → GitHub auto-merge is enabled.
-#   2. Auto-merge waits for required checks, then squash-merges and deletes the branch.
-#   3. Once the deploy-labeled PR is merged, a new SemVer release is cut.
+# Flow (single job — on purpose):
+#   1. Someone labels an open PR with "deploy".
+#   2. This job enables GitHub's auto-merge (squash + delete branch).
+#   3. It polls the PR until GitHub finishes the merge (or times out).
+#   4. Once merged, it computes the next SemVer tag and cuts a release.
 #
-# Version bump rules (based on PR labels present at merge time):
+# Why single-job? Events produced by GITHUB_TOKEN (like the PR-closed event
+# fired by auto-merge) do NOT trigger downstream workflow runs. Splitting
+# this into two jobs keyed on "closed" would never run the second half
+# unless we swapped GITHUB_TOKEN for a PAT.
+#
+# Version bump rules (based on PR labels present when the job starts):
 #   - label "major"  → v{M+1}.0.0
 #   - label "minor"  → v{M}.{m+1}.0
 #   - default        → v{M}.{m}.{p+1}
 #
 # Repository prerequisites:
-#   - Settings → General → "Allow auto-merge" must be enabled.
-#   - main branch should have at least one required status check, otherwise
-#     GitHub's auto-merge has nothing to wait for and `--auto` will fail.
+#   - Settings → General → "Allow auto-merge" enabled.
+#   - main has at least one required status check (so --auto has something
+#     to wait on); the "style" check from tests.yml is a good minimal one.
 
 on:
   pull_request:
-    types: [labeled, closed]
+    types: [labeled]
 
 permissions:
   contents: write
@@ -28,37 +34,57 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  auto-merge:
-    name: Enable auto-merge
+  deploy:
+    name: Auto-merge & release
     if: >-
-      github.event.action == 'labeled' &&
       github.event.label.name == 'deploy' &&
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+
     steps:
-      - name: Enable auto-merge (squash + delete branch)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+      - name: Enable GitHub auto-merge
         run: gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --repo "$GITHUB_REPOSITORY"
 
-  release:
-    name: Cut release
-    if: >-
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'deploy')
-    runs-on: ubuntu-latest
-    steps:
+      - name: Wait for merge to complete
+        id: wait
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 80); do  # 80 × 20s = ~27 min
+            state=$(gh pr view "$PR_NUMBER" --json state,mergedAt,mergeCommit -q '.state')
+            merged=$(gh pr view "$PR_NUMBER" --json mergedAt -q '.mergedAt // ""')
+            sha=$(gh pr view "$PR_NUMBER" --json mergeCommit -q '.mergeCommit.oid // ""')
+
+            case "$state" in
+              MERGED)
+                echo "merge_sha=$sha" >>"$GITHUB_OUTPUT"
+                echo "Merged at $merged (sha: $sha)"
+                exit 0
+                ;;
+              CLOSED)
+                echo "PR was closed without merging."
+                exit 1
+                ;;
+            esac
+
+            echo "Attempt $attempt: state=$state, waiting 20s…"
+            sleep 20
+          done
+          echo "Timed out waiting for merge."
+          exit 1
+
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Compute next version
         id: version
-        env:
-          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
           set -euo pipefail
 
@@ -83,12 +109,12 @@ jobs:
 
       - name: Create GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
+          TARGET_SHA: ${{ steps.wait.outputs.merge_sha }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           gh release create "$TAG" \
-            --target main \
+            --target "$TARGET_SHA" \
             --title "$TAG — $PR_TITLE" \
             --generate-notes \
             --latest
