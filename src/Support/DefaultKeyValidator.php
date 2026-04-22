@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
+use DevactionLabs\Idempotency\Contracts\KeyValidator;
 use Illuminate\Support\Str;
-use Infinitypaul\Idempotency\Contracts\KeyValidator;
 
 final class DefaultKeyValidator implements KeyValidator
 {

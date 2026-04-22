@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
+use DevactionLabs\Idempotency\Contracts\ScopeResolver;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
-use Infinitypaul\Idempotency\Contracts\ScopeResolver;
 
 final class DefaultScopeResolver implements ScopeResolver
 {

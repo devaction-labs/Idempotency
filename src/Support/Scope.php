@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
 enum Scope: string
 {

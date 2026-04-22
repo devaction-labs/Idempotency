@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
-use Infinitypaul\Idempotency\Support\DefaultResponseSerializer;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 it('serializes and deserializes a Response round-trip', function () {

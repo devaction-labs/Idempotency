@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Facades;
+namespace DevactionLabs\Idempotency\Facades;
 
+use DevactionLabs\Idempotency\IdempotencyManager;
 use Illuminate\Support\Facades\Facade;
-use Infinitypaul\Idempotency\IdempotencyManager;
 
 /**
  * @method static void flush(?string $key = null, ?string $scope = null)

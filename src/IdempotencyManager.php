@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency;
+namespace DevactionLabs\Idempotency;
 
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;

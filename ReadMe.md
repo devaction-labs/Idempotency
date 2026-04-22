@@ -4,11 +4,11 @@
 
 **Safely retry mutating HTTP requests. No double charges. No duplicated orders. No accidental side effects.**
 
-[![Latest Version](https://img.shields.io/packagist/v/infinitypaul/idempotency-laravel.svg?style=flat-square&label=packagist)](https://packagist.org/packages/infinitypaul/idempotency-laravel)
+[![Latest Version](https://img.shields.io/packagist/v/devaction-labs/idempotency.svg?style=flat-square&label=packagist)](https://packagist.org/packages/devaction-labs/idempotency)
 [![Tests](https://img.shields.io/github/actions/workflow/status/devaction-labs/Idempotency/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/devaction-labs/Idempotency/actions)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen?style=flat-square)](phpstan.neon)
 [![Code Style](https://img.shields.io/badge/code%20style-pint-orange?style=flat-square)](pint.json)
-[![PHP](https://img.shields.io/packagist/php-v/infinitypaul/idempotency-laravel?style=flat-square)](composer.json)
+[![PHP](https://img.shields.io/packagist/php-v/devaction-labs/idempotency?style=flat-square)](composer.json)
 [![License](https://img.shields.io/github/license/devaction-labs/Idempotency?style=flat-square)](LICENSE.md)
 
 </div>
@@ -70,7 +70,7 @@ Content-Type: application/json
 ## Installation
 
 ```bash
-composer require infinitypaul/idempotency-laravel
+composer require devaction-labs/idempotency
 php artisan vendor:publish --tag=idempotency-config
 ```
 
@@ -243,8 +243,8 @@ The package guards against "same key, different body" by hashing the payload and
 The package dispatches `IdempotencyAlertFired` whenever something interesting happens. Listen for it and route to logs, Sentry, Slack — whatever:
 
 ```php
-use Infinitypaul\Idempotency\Events\IdempotencyAlertFired;
-use Infinitypaul\Idempotency\Logging\EventType;
+use DevactionLabs\Idempotency\Events\IdempotencyAlertFired;
+use DevactionLabs\Idempotency\Logging\EventType;
 
 Event::listen(IdempotencyAlertFired::class, function (IdempotencyAlertFired $event): void {
     match ($event->eventType) {
@@ -256,7 +256,7 @@ Event::listen(IdempotencyAlertFired::class, function (IdempotencyAlertFired $eve
 });
 ```
 
-Full event catalogue (`Infinitypaul\Idempotency\Logging\EventType`):
+Full event catalogue (`DevactionLabs\Idempotency\Logging\EventType`):
 
 | Case | Fires when |
 | --- | --- |
@@ -287,7 +287,7 @@ IDEMPOTENCY_TELEMETRY_DRIVER=inspector
 
 The driver records: request counts, cache hit/miss, lock acquisition time, processing time, response size.
 
-Write your own by implementing `Infinitypaul\Idempotency\Contracts\TelemetryDriver` and pointing `telemetry.custom_driver_class` at it.
+Write your own by implementing `DevactionLabs\Idempotency\Contracts\TelemetryDriver` and pointing `telemetry.custom_driver_class` at it.
 
 ---
 
@@ -296,7 +296,7 @@ Write your own by implementing `Infinitypaul\Idempotency\Contracts\TelemetryDriv
 Every piece of logic sits behind a contract. Swap any of them:
 
 ```php
-use Infinitypaul\Idempotency\Contracts\{
+use DevactionLabs\Idempotency\Contracts\{
     KeyValidator,
     PayloadHasher,
     ScopeResolver,
@@ -583,7 +583,7 @@ php artisan idempotency:flush 123e4567-e89b-12d3-a456-426614174000 --scope=u42
 You can also reach the same behaviour programmatically through the facade:
 
 ```php
-use Infinitypaul\Idempotency\Facades\Idempotency;
+use DevactionLabs\Idempotency\Facades\Idempotency;
 
 Idempotency::flush('123e4567-e89b-12d3-a456-426614174000', scope: 'u42');
 Idempotency::has('123e4567-e89b-12d3-a456-426614174000');

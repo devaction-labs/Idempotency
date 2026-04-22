@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use DevactionLabs\Idempotency\Support\DefaultPayloadHasher;
 use Illuminate\Http\Request;
-use Infinitypaul\Idempotency\Support\DefaultPayloadHasher;
 
 it('produces the same hash regardless of key order', function () {
     $hasher = new DefaultPayloadHasher('sha256', sortKeys: true);

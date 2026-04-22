@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Logging;
+namespace DevactionLabs\Idempotency\Logging;
 
 enum EventType: string
 {

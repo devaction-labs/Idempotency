@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Contracts;
+namespace DevactionLabs\Idempotency\Contracts;
 
 use Illuminate\Http\Request;
 

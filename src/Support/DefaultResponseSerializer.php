@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Support;
+namespace DevactionLabs\Idempotency\Support;
 
+use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response as LaravelResponse;
-use Infinitypaul\Idempotency\Contracts\ResponseSerializer;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;

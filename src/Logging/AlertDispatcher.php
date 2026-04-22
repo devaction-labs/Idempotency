@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Logging;
+namespace DevactionLabs\Idempotency\Logging;
 
+use DevactionLabs\Idempotency\Events\IdempotencyAlertFired;
+use DevactionLabs\Idempotency\Support\ConfigAccess;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Events\Dispatcher;
-use Infinitypaul\Idempotency\Events\IdempotencyAlertFired;
-use Infinitypaul\Idempotency\Support\ConfigAccess;
 
 final class AlertDispatcher
 {

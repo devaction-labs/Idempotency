@@ -1,67 +1,79 @@
 {
-    "name": "infinitypaul/idempotency-laravel",
-    "description": "Elegant, production-ready idempotency middleware for Laravel APIs — smart payload hashing, per-user scoping, pluggable telemetry.",
-    "type": "library",
-    "license": "MIT",
-    "keywords": ["laravel", "idempotency", "api", "middleware", "http", "php"],
-    "autoload": {
-        "psr-4": {
-            "Infinitypaul\\Idempotency\\": "src/"
-        }
+  "name": "devaction-labs/idempotency",
+  "description": "Elegant, production-ready idempotency middleware for Laravel APIs — smart payload hashing, per-user scoping, pluggable telemetry.",
+  "type": "library",
+  "license": "MIT",
+  "keywords": [
+    "laravel",
+    "idempotency",
+    "api",
+    "middleware",
+    "http",
+    "php"
+  ],
+  "autoload": {
+    "psr-4": {
+      "DevactionLabs\\Idempotency\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "DevactionLabs\\Idempotency\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "DevactionLabs\\Idempotency\\IdempotencyServiceProvider"
+      ],
+      "aliases": {
+        "Idempotency": "DevactionLabs\\Idempotency\\Facades\\Idempotency"
+      }
+    }
+  },
+  "authors": [
+    {
+      "name": "Alex Nogueira",
+      "email": "alex@devaction.com.br"
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Infinitypaul\\Idempotency\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "Infinitypaul\\Idempotency\\IdempotencyServiceProvider"
-            ],
-            "aliases": {
-                "Idempotency": "Infinitypaul\\Idempotency\\Facades\\Idempotency"
-            }
-        }
-    },
-    "authors": [
-        {
-            "name": "infinitypaul",
-            "email": "infinitypaul@live.com"
-        }
-    ],
-    "require": {
-        "php": "^8.3",
-        "illuminate/contracts": "^11.0|^12.0|^13.0",
-        "illuminate/support": "^11.0|^12.0|^13.0",
-        "illuminate/events": "^11.0|^12.0|^13.0",
-        "illuminate/http": "^11.0|^12.0|^13.0",
-        "illuminate/cache": "^11.0|^12.0|^13.0",
-        "illuminate/console": "^11.0|^12.0|^13.0"
-    },
-    "require-dev": {
-        "inspector-apm/inspector-laravel": "^4.11",
-        "larastan/larastan": "^3.9",
-        "laravel/pint": "^1.27",
-        "orchestra/testbench": "^9.0|^10.0|^11.0",
-        "pestphp/pest": "^3.0|^4.0",
-        "pestphp/pest-plugin-laravel": "^3.0|^4.0"
-    },
-    "suggest": {
-        "inspector-apm/inspector-laravel": "Required for the Inspector telemetry driver (^4.11)."
-    },
-    "scripts": {
-        "test": "vendor/bin/pest",
-        "test-coverage": "vendor/bin/pest --coverage",
-        "analyse": "vendor/bin/phpstan analyse",
-        "format": "vendor/bin/pint"
-    },
-    "config": {
-        "sort-packages": true,
-        "allow-plugins": {
-            "pestphp/pest-plugin": true
-        }
-    },
-    "minimum-stability": "dev",
-    "prefer-stable": true
+    {
+      "name": "infinitypaul",
+      "email": "infinitypaul@live.com",
+      "role": "Original author (v1)"
+    }
+  ],
+  "require": {
+    "php": "^8.3",
+    "illuminate/contracts": "^11.0|^12.0|^13.0",
+    "illuminate/support": "^11.0|^12.0|^13.0",
+    "illuminate/events": "^11.0|^12.0|^13.0",
+    "illuminate/http": "^11.0|^12.0|^13.0",
+    "illuminate/cache": "^11.0|^12.0|^13.0",
+    "illuminate/console": "^11.0|^12.0|^13.0"
+  },
+  "require-dev": {
+    "inspector-apm/inspector-laravel": "^4.11",
+    "larastan/larastan": "^3.9",
+    "laravel/pint": "^1.27",
+    "orchestra/testbench": "^9.0|^10.0|^11.0",
+    "pestphp/pest": "^3.0|^4.0",
+    "pestphp/pest-plugin-laravel": "^3.0|^4.0"
+  },
+  "suggest": {
+    "inspector-apm/inspector-laravel": "Required for the Inspector telemetry driver (^4.11)."
+  },
+  "scripts": {
+    "test": "vendor/bin/pest",
+    "test-coverage": "vendor/bin/pest --coverage",
+    "analyse": "vendor/bin/phpstan analyse",
+    "format": "vendor/bin/pint"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }

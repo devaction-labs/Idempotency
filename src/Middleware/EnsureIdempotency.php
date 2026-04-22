@@ -2,9 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Infinitypaul\Idempotency\Middleware;
+namespace DevactionLabs\Idempotency\Middleware;
 
 use Closure;
+use DevactionLabs\Idempotency\Contracts\KeyValidator;
+use DevactionLabs\Idempotency\Contracts\PayloadHasher;
+use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
+use DevactionLabs\Idempotency\Contracts\ScopeResolver;
+use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
+use DevactionLabs\Idempotency\Logging\AlertDispatcher;
+use DevactionLabs\Idempotency\Logging\EventType;
+use DevactionLabs\Idempotency\Support\ConfigAccess;
+use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
+use DevactionLabs\Idempotency\Telemetry\TelemetryManager;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
@@ -12,16 +22,6 @@ use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Infinitypaul\Idempotency\Contracts\KeyValidator;
-use Infinitypaul\Idempotency\Contracts\PayloadHasher;
-use Infinitypaul\Idempotency\Contracts\ResponseSerializer;
-use Infinitypaul\Idempotency\Contracts\ScopeResolver;
-use Infinitypaul\Idempotency\Contracts\TelemetryDriver;
-use Infinitypaul\Idempotency\Logging\AlertDispatcher;
-use Infinitypaul\Idempotency\Logging\EventType;
-use Infinitypaul\Idempotency\Support\ConfigAccess;
-use Infinitypaul\Idempotency\Support\DefaultResponseSerializer;
-use Infinitypaul\Idempotency\Telemetry\TelemetryManager;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
