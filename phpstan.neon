@@ -1,11 +1,18 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
 parameters:
     level: max
     paths:
         - src
     tmpDir: .phpstan.cache
-    # Laravel phpdocs often over-promise (e.g. Request::route() is typed as
-    # Route but can return null before routing resolves). Trust only real
-    # native types — match the defensive style used across the codebase.
     treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
+        # HasCacheLock trait on Illuminate\Cache\Repository isn't picked up
         - '#Call to an undefined method Illuminate\\Cache\\Repository::lock\(\)#'
+        # Defensive runtime guards — we keep them even if types narrow
+        - identifier: instanceof.alwaysTrue
+        - identifier: identical.alwaysFalse
+        - identifier: notIdentical.alwaysTrue
+        - identifier: nullCoalesce.offset
