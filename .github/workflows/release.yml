@@ -2,9 +2,11 @@ name: Deploy & Release
 
 # Flow (single job — on purpose):
 #   1. Someone labels an open PR with "deploy".
-#   2. This job enables GitHub's auto-merge (squash + delete branch).
+#   2. This job enables GitHub's auto-merge (squash).
 #   3. It polls the PR until GitHub finishes the merge (or times out).
-#   4. Once merged, it computes the next SemVer tag and cuts a release.
+#   4. Deletes the merged branch explicitly (auto-merge's --delete-branch
+#      flag is not always honoured once the merge is queued).
+#   5. Computes the next SemVer tag and cuts a release on main.
 #
 # Why single-job? Events produced by GITHUB_TOKEN (like the PR-closed event
 # fired by auto-merge) do NOT trigger downstream workflow runs. Splitting
@@ -45,25 +47,27 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO: ${{ github.repository }}
       LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
 
     steps:
       - name: Enable GitHub auto-merge
-        run: gh pr merge "$PR_NUMBER" --auto --squash --delete-branch --repo "$GITHUB_REPOSITORY"
+        run: gh pr merge "$PR_NUMBER" --repo "$REPO" --auto --squash
 
       - name: Wait for merge to complete
         id: wait
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 80); do  # 80 × 20s = ~27 min
-            state=$(gh pr view "$PR_NUMBER" --json state,mergedAt,mergeCommit -q '.state')
-            merged=$(gh pr view "$PR_NUMBER" --json mergedAt -q '.mergedAt // ""')
-            sha=$(gh pr view "$PR_NUMBER" --json mergeCommit -q '.mergeCommit.oid // ""')
+          for attempt in $(seq 1 80); do
+            state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json state -q .state)
+            sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json mergeCommit -q '.mergeCommit.oid // ""')
+            head=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefName -q .headRefName)
 
             case "$state" in
               MERGED)
                 echo "merge_sha=$sha" >>"$GITHUB_OUTPUT"
-                echo "Merged at $merged (sha: $sha)"
+                echo "head_ref=$head" >>"$GITHUB_OUTPUT"
+                echo "Merged (sha: $sha, ref: $head)"
                 exit 0
                 ;;
               CLOSED)
@@ -78,6 +82,13 @@ jobs:
           echo "Timed out waiting for merge."
           exit 1
 
+      - name: Delete merged branch
+        continue-on-error: true
+        run: |
+          ref=${{ steps.wait.outputs.head_ref }}
+          echo "Deleting branch: $ref"
+          gh api -X DELETE "repos/$REPO/git/refs/heads/$ref" || echo "Branch already gone"
+
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -87,7 +98,6 @@ jobs:
         id: version
         run: |
           set -euo pipefail
-
           last_tag=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
 
           if [ -z "$last_tag" ]; then
@@ -114,6 +124,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           gh release create "$TAG" \
+            --repo "$REPO" \
             --target "$TARGET_SHA" \
             --title "$TAG — $PR_TITLE" \
             --generate-notes \
