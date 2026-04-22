@@ -64,7 +64,7 @@ Content-Type: application/json
 | Dependency | Version |
 | --- | --- |
 | PHP | **8.3, 8.4, 8.5** |
-| Laravel | **10.x / 11.x / 12.x / 13.x** |
+| Laravel | **11.x / 12.x / 13.x** (Laravel 10 reached security EOL in Aug 2025) |
 | Cache store | any driver with atomic locks — `redis`, `memcached`, `database`, `dynamodb` |
 
 ## Installation

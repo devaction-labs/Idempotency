@@ -32,18 +32,18 @@
     ],
     "require": {
         "php": "^8.3",
-        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/events": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/cache": "^10.0|^11.0|^12.0|^13.0",
-        "illuminate/console": "^10.0|^11.0|^12.0|^13.0"
+        "illuminate/contracts": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/events": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "illuminate/cache": "^11.0|^12.0|^13.0",
+        "illuminate/console": "^11.0|^12.0|^13.0"
     },
     "require-dev": {
         "inspector-apm/inspector-laravel": "^4.11",
         "larastan/larastan": "^3.9",
         "laravel/pint": "^1.27",
-        "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
         "pestphp/pest": "^3.0|^4.0",
         "pestphp/pest-plugin-laravel": "^3.0|^4.0"
     },

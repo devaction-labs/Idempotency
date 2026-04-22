@@ -38,7 +38,7 @@ Major rewrite. Everything below is a **breaking change** unless noted.
 - Inspector is no longer a hard dependency — moved to `suggest`.
 
 ### Changed
-- **Minimum PHP 8.3, minimum Laravel 10.**
+- **Minimum PHP 8.3, minimum Laravel 11.** (Laravel 10 reached security EOL in August 2025; `pest-plugin-laravel ^3.0` requires Laravel 11+.)
 - Config moved from `src/config/` to `config/`.
 - `EventType` is now a backed enum.
 - `IdempotencyAlertFired` is now `readonly` + `Dispatchable` and carries typed properties.
