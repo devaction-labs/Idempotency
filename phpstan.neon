@@ -1,0 +1,11 @@
+parameters:
+    level: max
+    paths:
+        - src
+    tmpDir: .phpstan.cache
+    # Laravel phpdocs often over-promise (e.g. Request::route() is typed as
+    # Route but can return null before routing resolves). Trust only real
+    # native types — match the defensive style used across the codebase.
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        - '#Call to an undefined method Illuminate\\Cache\\Repository::lock\(\)#'
