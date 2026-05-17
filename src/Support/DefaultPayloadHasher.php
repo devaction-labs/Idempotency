@@ -7,6 +7,7 @@ namespace DevactionLabs\Idempotency\Support;
 use DevactionLabs\Idempotency\Contracts\PayloadHasher;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use JsonException;
 
 final class DefaultPayloadHasher implements PayloadHasher
 {
@@ -20,6 +21,9 @@ final class DefaultPayloadHasher implements PayloadHasher
         private readonly bool $includeFiles = true,
     ) {}
 
+    /**
+     * @throws JsonException
+     */
     public function hash(Request $request): string
     {
         /** @var array<string,mixed> $data */
@@ -38,7 +42,7 @@ final class DefaultPayloadHasher implements PayloadHasher
             $data = $this->recursiveKsort($data);
         }
 
-        $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         if ($json === false) {
             $json = serialize($data);
@@ -72,7 +76,11 @@ final class DefaultPayloadHasher implements PayloadHasher
         foreach ($request->allFiles() as $field => $file) {
             if (is_array($file)) {
                 $out[$field] = array_map(fn (UploadedFile $f) => $this->fileFingerprint($f), $file);
-            } elseif ($file instanceof UploadedFile) {
+
+                continue;
+            }
+
+            if ($file instanceof UploadedFile) {
                 $out[$field] = $this->fileFingerprint($file);
             }
         }

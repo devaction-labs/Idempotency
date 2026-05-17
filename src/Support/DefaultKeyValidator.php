@@ -29,12 +29,17 @@ final class DefaultKeyValidator implements KeyValidator
 
     private function regex(string $key): bool
     {
-        $pattern = $this->pattern;
-
-        if ($pattern === '' || @preg_match($pattern, '') === false) {
+        if ($this->pattern === '' || ! $this->isValidPattern($this->pattern)) {
             return false;
         }
 
-        return preg_match($pattern, $key) === 1;
+        return preg_match($this->pattern, $key) === 1;
+    }
+
+    private function isValidPattern(string $pattern): bool
+    {
+        // preg_match emits E_WARNING on invalid regex and returns false.
+        // @ suppression is the standard PHP idiom for probing pattern validity.
+        return @preg_match($pattern, '') !== false;
     }
 }

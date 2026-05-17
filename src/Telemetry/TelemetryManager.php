@@ -7,10 +7,12 @@ namespace DevactionLabs\Idempotency\Telemetry;
 use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
 use DevactionLabs\Idempotency\Telemetry\Drivers\InspectorTelemetryDriver;
 use DevactionLabs\Idempotency\Telemetry\Drivers\NullTelemetryDriver;
+use DevactionLabs\Idempotency\Telemetry\Drivers\OtelTelemetryDriver;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Manager;
 use Inspector\Laravel\Facades\Inspector;
 use InvalidArgumentException;
+use OpenTelemetry\API\Globals;
 use RuntimeException;
 
 final class TelemetryManager extends Manager
@@ -56,6 +58,18 @@ final class TelemetryManager extends Manager
         }
 
         return new InspectorTelemetryDriver;
+    }
+
+    protected function createOtelDriver(): TelemetryDriver
+    {
+        if (! class_exists(Globals::class)) {
+            throw new RuntimeException(
+                'OpenTelemetry telemetry driver requires open-telemetry/api. '.
+                'Run `composer require open-telemetry/api` or switch the driver.'
+            );
+        }
+
+        return new OtelTelemetryDriver;
     }
 
     protected function createCustomDriver(): TelemetryDriver

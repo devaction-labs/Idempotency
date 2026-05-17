@@ -95,6 +95,32 @@ it('fires an alert after the configured hit threshold', function () use ($uuid) 
     );
 });
 
+it('honors the :scope= middleware param and isolates from the global scope', function () use ($uuid) {
+    config(['idempotency.scope' => 'global']);
+
+    Route::middleware(EnsureIdempotency::class.':scope=user_route')
+        ->post('/scoped', fn () => response()->json(['source' => 'scoped'], 201));
+    Route::middleware(EnsureIdempotency::class)
+        ->post('/global', fn () => response()->json(['source' => 'global'], 201));
+
+    $key = $uuid();
+    $headers = ['Idempotency-Key' => $key];
+
+    // First hit on the scoped route → original
+    $this->postJson('/scoped', ['a' => 1], $headers)
+        ->assertStatus(201)
+        ->assertHeader('Idempotency-Status', 'Original');
+
+    // Same key on the global route → also original (different namespace)
+    $this->postJson('/global', ['a' => 1], $headers)
+        ->assertStatus(201)
+        ->assertHeader('Idempotency-Status', 'Original');
+
+    // Replay on the scoped route → repeated
+    $this->postJson('/scoped', ['a' => 1], $headers)
+        ->assertHeader('Idempotency-Status', 'Repeated');
+});
+
 it('honors the configured header name', function () use ($uuid) {
     config(['idempotency.header_name' => 'X-Idempotency-Key']);
     Route::middleware(EnsureIdempotency::class)->post('/custom', fn () => response()->json(['ok' => true], 201));

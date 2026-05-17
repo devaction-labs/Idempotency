@@ -9,6 +9,8 @@ use DevactionLabs\Idempotency\Support\ConfigAccess;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Events\Dispatcher;
+use JsonException;
+use Psr\SimpleCache\InvalidArgumentException;
 
 final class AlertDispatcher
 {
@@ -30,10 +32,18 @@ final class AlertDispatcher
         $this->events->dispatch(new IdempotencyAlertFired($eventType, $context));
     }
 
-    /** @param array<string,mixed> $context */
+    /** @param array<string,mixed> $context
+     * @throws InvalidArgumentException
+     */
     private function shouldSend(EventType $eventType, array $context): bool
     {
-        $fingerprint = hash('sha256', $eventType->value.':'.json_encode($context, JSON_THROW_ON_ERROR));
+        try {
+            $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            $encoded = serialize($context);
+        }
+
+        $fingerprint = hash('sha256', $eventType->value.':'.$encoded);
         $cacheKey = "idempotency:alert_sent:{$fingerprint}";
         $storeName = $this->configStr($this->config, 'idempotency.cache_store', '');
         $store = $this->cache->store($storeName === '' ? null : $storeName);

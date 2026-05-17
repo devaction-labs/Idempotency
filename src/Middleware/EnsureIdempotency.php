@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DevactionLabs\Idempotency\Middleware;
 
 use Closure;
+use DevactionLabs\Idempotency\Contracts\CacheabilityChecker;
 use DevactionLabs\Idempotency\Contracts\KeyValidator;
 use DevactionLabs\Idempotency\Contracts\PayloadHasher;
 use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
@@ -14,14 +15,18 @@ use DevactionLabs\Idempotency\Logging\AlertDispatcher;
 use DevactionLabs\Idempotency\Logging\EventType;
 use DevactionLabs\Idempotency\Support\ConfigAccess;
 use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
+use DevactionLabs\Idempotency\Support\DefaultScopeResolver;
+use DevactionLabs\Idempotency\Support\Scope;
 use DevactionLabs\Idempotency\Telemetry\TelemetryManager;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -45,6 +50,8 @@ final class EnsureIdempotency
      *   ':optional'           → missing key is allowed, request passes through
      *   ':ttl=600'            → override ttl (seconds) for this route
      *   ':scope=user_route'   → override scope
+     *
+     * @throws Throwable
      */
     public function handle(Request $request, Closure $next, string ...$params): mixed
     {
@@ -89,7 +96,7 @@ final class EnsureIdempotency
                 'Invalid '.$headerName.' format');
         }
 
-        $scopePrefix = $this->scopeResolver->resolve($request);
+        $scopePrefix = $this->resolveScope($opts['scope'], $request);
         $keys = $this->keysFor($idempotencyKey, $scopePrefix);
         $ttl = $opts['ttl'] ?? $this->configInt($this->config, 'idempotency.ttl', 86_400);
         $store = $this->store();
@@ -97,10 +104,10 @@ final class EnsureIdempotency
         $cached = $store->get($keys['response']);
         if ($cached !== null) {
             return $this->handleCached($cached, $keys, $idempotencyKey, $request, $ttl, $startTime,
-                $telemetry, $segment);
+                $telemetry, $segment, $store);
         }
 
-        return $this->handleNew($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment);
+        return $this->handleNew($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment, $store);
     }
 
     /**
@@ -125,8 +132,13 @@ final class EnsureIdempotency
             [$k, $v] = explode('=', $raw, 2);
 
             if ($k === 'ttl') {
-                $opts['ttl'] = (int) $v;
-            } elseif ($k === 'scope') {
+                $val = (int) $v;
+                $opts['ttl'] = $val > 0 ? $val : null;
+
+                continue;
+            }
+
+            if ($k === 'scope') {
                 $opts['scope'] = $v;
             }
         }
@@ -134,12 +146,28 @@ final class EnsureIdempotency
         return $opts;
     }
 
+    private function resolveScope(?string $override, Request $request): string
+    {
+        if ($override === null) {
+            return $this->scopeResolver->resolve($request);
+        }
+
+        // Allow ':scope=user_route' (or any Scope enum value) to switch strategy per route.
+        $scopeEnum = Scope::tryFrom($override);
+
+        return $scopeEnum !== null
+            ? new DefaultScopeResolver($scopeEnum)->resolve($request)
+            : $override; // raw string prefix for custom partitioning
+    }
+
     private function methodApplies(Request $request): bool
     {
         $methods = $this->configArr($this->config, 'idempotency.methods', []);
         $upper = array_map(static fn ($m): string => is_string($m) ? strtoupper($m) : '', $methods);
 
-        return in_array(strtoupper($request->method()), $upper, true);
+        return $request->method()
+                |> strtoupper(...)
+                |> (static fn ($x) => in_array($x, $upper, true));
     }
 
     private function reject(
@@ -177,7 +205,7 @@ final class EnsureIdempotency
         $store = $this->cacheFactory->store(is_string($name) ? $name : null);
 
         if (! $store instanceof CacheRepository) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Idempotency requires a cache store backed by Illuminate\\Cache\\Repository '.
                 '(needs lock support). Got: '.$store::class
             );
@@ -198,8 +226,8 @@ final class EnsureIdempotency
         float $startTime,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $storedHash = $store->get($keys['payload_hash']);
         $currentHash = $this->payloadHasher->hash($request);
 
@@ -218,8 +246,8 @@ final class EnsureIdempotency
             ], 422);
         }
 
-        $telemetry->recordMetric('cache.hit');
-        $metadata = $this->touchMetadata($keys['metadata'], $ttl);
+        $telemetry->recordMetric(EventType::CACHE_HIT->value);
+        $metadata = $this->touchMetadata($keys['metadata'], $ttl, $store);
         $this->maybeAlertThreshold($metadata, $idempotencyKey, $request);
 
         $duration = (microtime(true) - $startTime) * 1000;
@@ -242,8 +270,8 @@ final class EnsureIdempotency
         int $ttl,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $lockTimeout = $this->configInt($this->config, 'idempotency.lock.timeout', 30);
         $lockWait = $this->configInt($this->config, 'idempotency.lock.wait', 5);
 
@@ -253,12 +281,17 @@ final class EnsureIdempotency
         $lockStart = microtime(true);
 
         try {
-            $lockAcquired = $lock->block($lockWait);
+            try {
+                $lockAcquired = $lock->block($lockWait);
+            } catch (LockTimeoutException) {
+                $lockAcquired = false;
+            }
+
             $telemetry->recordTiming('lock_acquisition_time', (microtime(true) - $lockStart) * 1000);
 
             $cached = $store->get($keys['response']);
             if ($cached !== null) {
-                $telemetry->recordMetric('cache.late_hit');
+                $telemetry->recordMetric(EventType::CACHE_LATE_HIT->value);
                 $telemetry->addSegmentContext($segment, 'status', 'late_duplicate');
                 $telemetry->endSegment($segment);
 
@@ -274,9 +307,11 @@ final class EnsureIdempotency
                     $telemetry->recordMetric('responses.concurrent_conflict');
                     $telemetry->endSegment($segment);
 
-                    return new JsonResponse([
-                        'error' => 'A request with this idempotency key is currently being processed',
-                    ], 409);
+                    return new JsonResponse(
+                        ['error' => 'A request with this idempotency key is currently being processed'],
+                        409,
+                        ['Retry-After' => (string) max(1, $lockWait)],
+                    );
                 }
 
                 $this->alerts->dispatch(EventType::LOCK_INCONSISTENCY, [
@@ -286,12 +321,14 @@ final class EnsureIdempotency
                 $telemetry->recordMetric('errors.lock_inconsistency');
                 $telemetry->endSegment($segment);
 
-                return new JsonResponse([
-                    'error' => 'Could not acquire idempotency lock. Please retry.',
-                ], 503);
+                return new JsonResponse(
+                    ['error' => 'Could not acquire idempotency lock. Please retry.'],
+                    503,
+                    ['Retry-After' => (string) $lockWait],
+                );
             }
 
-            return $this->process($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment);
+            return $this->process($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment, $store);
         } catch (Throwable $e) {
             $this->alerts->dispatch(EventType::EXCEPTION_THROWN, [
                 'idempotency_key' => $idempotencyKey,
@@ -318,8 +355,8 @@ final class EnsureIdempotency
         int $ttl,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $processingTtl = $this->configInt($this->config, 'idempotency.processing_ttl', 300);
 
         $store->put($keys['processing'], true, $processingTtl);
@@ -336,7 +373,7 @@ final class EnsureIdempotency
             'client_ip' => $request->ip(),
         ], $ttl);
 
-        $telemetry->recordMetric('requests.original');
+        $telemetry->recordMetric(EventType::RESPONSE_ORIGINAL->value);
         $processingStart = microtime(true);
 
         /** @var Response $response */
@@ -347,9 +384,13 @@ final class EnsureIdempotency
 
         $this->addHeaders($response, $idempotencyKey, 'Original');
 
-        if ($this->shouldCache($response)) {
+        $cacheable = $this->shouldCache($response);
+
+        if ($cacheable) {
             $this->cacheResponse($store, $keys['response'], $response, $request, $ttl, $telemetry);
-        } else {
+        }
+
+        if (! $cacheable) {
             $telemetry->recordMetric('responses.not_cached');
         }
 
@@ -363,7 +404,11 @@ final class EnsureIdempotency
 
     private function shouldCache(Response $response): bool
     {
-        if (! DefaultResponseSerializer::isCacheable($response)) {
+        $cacheable = $this->responseSerializer instanceof CacheabilityChecker
+            ? $this->responseSerializer->isCacheable($response)
+            : DefaultResponseSerializer::isCacheable($response);
+
+        if (! $cacheable) {
             return false;
         }
 
@@ -387,7 +432,8 @@ final class EnsureIdempotency
             $serialized = $this->responseSerializer->serialize($response);
             $store->put($cacheKey, $serialized, $ttl);
 
-            $size = strlen((string) $response->getContent());
+            $encoded = json_encode($serialized, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $size = strlen($encoded !== false ? $encoded : serialize($serialized));
             $telemetry->recordSize('response_size', $size);
 
             $warnAt = $this->configInt($this->config, 'idempotency.size_warning', 1_048_576);
@@ -407,9 +453,8 @@ final class EnsureIdempotency
     }
 
     /** @return array{created_at:int, hit_count:int, last_hit_at?:int} */
-    private function touchMetadata(string $metadataKey, int $ttl): array
+    private function touchMetadata(string $metadataKey, int $ttl, CacheRepository $store): array
     {
-        $store = $this->store();
         $raw = $store->get($metadataKey);
 
         /** @var array{created_at:int, hit_count:int, last_hit_at?:int} $metadata */
@@ -447,15 +492,20 @@ final class EnsureIdempotency
         if (is_array($cached)) {
             /** @var array<string,mixed> $cached */
             $response = $this->responseSerializer->deserialize($cached);
-        } elseif ($cached instanceof Response) {
-            $response = $cached;
-        } else {
-            // Backwards-compat with any pre-v2 entries still in cache.
-            $response = new \Illuminate\Http\Response(
-                is_scalar($cached) ? (string) $cached : ''
-            );
+            $this->addHeaders($response, $idempotencyKey, $status);
+
+            return $response;
         }
 
+        if ($cached instanceof Response) {
+            $this->addHeaders($cached, $idempotencyKey, $status);
+
+            return $cached;
+        }
+
+        $response = new \Illuminate\Http\Response(
+            is_scalar($cached) ? (string) $cached : ''
+        );
         $this->addHeaders($response, $idempotencyKey, $status);
 
         return $response;
