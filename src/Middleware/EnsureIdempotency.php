@@ -99,10 +99,10 @@ final class EnsureIdempotency
         $cached = $store->get($keys['response']);
         if ($cached !== null) {
             return $this->handleCached($cached, $keys, $idempotencyKey, $request, $ttl, $startTime,
-                $telemetry, $segment);
+                $telemetry, $segment, $store);
         }
 
-        return $this->handleNew($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment);
+        return $this->handleNew($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment, $store);
     }
 
     /**
@@ -214,8 +214,8 @@ final class EnsureIdempotency
         float $startTime,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $storedHash = $store->get($keys['payload_hash']);
         $currentHash = $this->payloadHasher->hash($request);
 
@@ -235,7 +235,7 @@ final class EnsureIdempotency
         }
 
         $telemetry->recordMetric('cache.hit');
-        $metadata = $this->touchMetadata($keys['metadata'], $ttl);
+        $metadata = $this->touchMetadata($keys['metadata'], $ttl, $store);
         $this->maybeAlertThreshold($metadata, $idempotencyKey, $request);
 
         $duration = (microtime(true) - $startTime) * 1000;
@@ -258,8 +258,8 @@ final class EnsureIdempotency
         int $ttl,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $lockTimeout = $this->configInt($this->config, 'idempotency.lock.timeout', 30);
         $lockWait = $this->configInt($this->config, 'idempotency.lock.wait', 5);
 
@@ -307,7 +307,7 @@ final class EnsureIdempotency
                 ], 503);
             }
 
-            return $this->process($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment);
+            return $this->process($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment, $store);
         } catch (Throwable $e) {
             $this->alerts->dispatch(EventType::EXCEPTION_THROWN, [
                 'idempotency_key' => $idempotencyKey,
@@ -334,8 +334,8 @@ final class EnsureIdempotency
         int $ttl,
         TelemetryDriver $telemetry,
         mixed $segment,
+        CacheRepository $store,
     ): Response {
-        $store = $this->store();
         $processingTtl = $this->configInt($this->config, 'idempotency.processing_ttl', 300);
 
         $store->put($keys['processing'], true, $processingTtl);
@@ -423,9 +423,8 @@ final class EnsureIdempotency
     }
 
     /** @return array{created_at:int, hit_count:int, last_hit_at?:int} */
-    private function touchMetadata(string $metadataKey, int $ttl): array
+    private function touchMetadata(string $metadataKey, int $ttl, CacheRepository $store): array
     {
-        $store = $this->store();
         $raw = $store->get($metadataKey);
 
         /** @var array{created_at:int, hit_count:int, last_hit_at?:int} $metadata */
