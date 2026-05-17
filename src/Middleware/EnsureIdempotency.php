@@ -294,9 +294,11 @@ final class EnsureIdempotency
                     $telemetry->recordMetric('responses.concurrent_conflict');
                     $telemetry->endSegment($segment);
 
-                    return new JsonResponse([
-                        'error' => 'A request with this idempotency key is currently being processed',
-                    ], 409);
+                    return new JsonResponse(
+                        ['error' => 'A request with this idempotency key is currently being processed'],
+                        409,
+                        ['Retry-After' => (string) max(1, $lockWait)],
+                    );
                 }
 
                 $this->alerts->dispatch(EventType::LOCK_INCONSISTENCY, [
@@ -306,9 +308,11 @@ final class EnsureIdempotency
                 $telemetry->recordMetric('errors.lock_inconsistency');
                 $telemetry->endSegment($segment);
 
-                return new JsonResponse([
-                    'error' => 'Could not acquire idempotency lock. Please retry.',
-                ], 503);
+                return new JsonResponse(
+                    ['error' => 'Could not acquire idempotency lock. Please retry.'],
+                    503,
+                    ['Retry-After' => (string) $lockWait],
+                );
             }
 
             return $this->process($keys, $idempotencyKey, $request, $next, $ttl, $telemetry, $segment, $store);
