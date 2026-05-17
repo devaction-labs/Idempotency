@@ -424,7 +424,10 @@ final class EnsureIdempotency
             $serialized = $this->responseSerializer->serialize($response);
             $store->put($cacheKey, $serialized, $ttl);
 
-            $size = strlen((string) $response->getContent());
+            // Measure the serialized entry (headers + body) rather than body alone
+            // to get an accurate approximation of cache memory usage.
+            $encoded = json_encode($serialized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $size = strlen($encoded !== false ? $encoded : serialize($serialized));
             $telemetry->recordSize('response_size', $size);
 
             $warnAt = $this->configInt($this->config, 'idempotency.size_warning', 1_048_576);
