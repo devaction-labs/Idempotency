@@ -12,6 +12,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Manager;
 use Inspector\Laravel\Facades\Inspector;
 use InvalidArgumentException;
+use OpenTelemetry\API\Globals;
 use RuntimeException;
 
 final class TelemetryManager extends Manager
@@ -61,7 +62,7 @@ final class TelemetryManager extends Manager
 
     protected function createOtelDriver(): TelemetryDriver
     {
-        if (! class_exists(\OpenTelemetry\API\Globals::class)) {
+        if (! class_exists(Globals::class)) {
             throw new RuntimeException(
                 'OpenTelemetry telemetry driver requires open-telemetry/api. '.
                 'Run `composer require open-telemetry/api` or switch the driver.'

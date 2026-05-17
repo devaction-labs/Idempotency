@@ -20,20 +20,28 @@ final class OtelTelemetryDriver implements TelemetryDriver
 {
     private const INSTRUMENTATION = 'devaction-labs/idempotency';
 
-    public function startSegment(string $type, ?string $label = null): ?SpanInterface
+    public function startSegment(string $type, ?string $label = null): SpanInterface
     {
+        $spanName = $label ?? $type;
+
         return Globals::tracerProvider()
             ->getTracer(self::INSTRUMENTATION)
-            ->spanBuilder($label ?? $type)
+            ->spanBuilder('' !== $spanName ? $spanName : self::INSTRUMENTATION)
             ->setAttribute('idempotency.segment_type', $type)
             ->startSpan();
     }
 
     public function addSegmentContext(mixed $segment, string $key, mixed $value): void
     {
-        if ($segment instanceof SpanInterface) {
-            $segment->setAttribute('idempotency.'.$key, $value);
+        if (! $segment instanceof SpanInterface) {
+            return;
         }
+
+        if (! is_scalar($value) && ! is_array($value) && $value !== null) {
+            return;
+        }
+
+        $segment->setAttribute('idempotency.'.$key, $value);
     }
 
     public function endSegment(mixed $segment): void

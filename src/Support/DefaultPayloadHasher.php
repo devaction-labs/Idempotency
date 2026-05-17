@@ -76,6 +76,7 @@ final class DefaultPayloadHasher implements PayloadHasher
         foreach ($request->allFiles() as $field => $file) {
             if (is_array($file)) {
                 $out[$field] = array_map(fn (UploadedFile $f) => $this->fileFingerprint($f), $file);
+
                 continue;
             }
 

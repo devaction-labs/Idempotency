@@ -55,6 +55,7 @@
     "inspector-apm/inspector-laravel": "^4.11",
     "larastan/larastan": "^3.9",
     "laravel/pint": "^1.27",
+    "open-telemetry/api": "^1.0",
     "orchestra/testbench": "^9.0|^10.0|^11.0",
     "pestphp/pest": "^3.0|^4.0",
     "pestphp/pest-plugin-laravel": "^3.0|^4.0"

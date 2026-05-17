@@ -134,6 +134,7 @@ final class EnsureIdempotency
             if ($k === 'ttl') {
                 $val = (int) $v;
                 $opts['ttl'] = $val > 0 ? $val : null;
+
                 continue;
             }
 
