@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace DevactionLabs\Idempotency\Support;
 
-use DevactionLabs\Idempotency\Contracts\CacheabilityChecker;
 use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response as LaravelResponse;
@@ -12,7 +11,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-final class DefaultResponseSerializer implements ResponseSerializer, CacheabilityChecker
+final class DefaultResponseSerializer implements ResponseSerializer
 {
     private const STRIP_HEADERS = ['date', 'x-idempotency-replay-of'];
 
@@ -76,18 +75,7 @@ final class DefaultResponseSerializer implements ResponseSerializer, Cacheabilit
         return $response;
     }
 
-    public function isCacheable(Response $response): bool
-    {
-        return self::check($response);
-    }
-
-    /** @deprecated Use isCacheable() or CacheabilityChecker; kept for backwards compatibility. */
     public static function isCacheable(Response $response): bool
-    {
-        return self::check($response);
-    }
-
-    private static function check(Response $response): bool
     {
         return ! ($response instanceof StreamedResponse)
             && ! ($response instanceof BinaryFileResponse)

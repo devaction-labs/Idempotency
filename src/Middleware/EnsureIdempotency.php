@@ -22,6 +22,7 @@ use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -273,7 +274,13 @@ final class EnsureIdempotency
         $lockStart = microtime(true);
 
         try {
-            $lockAcquired = $lock->block($lockWait);
+            try {
+                $lockAcquired = $lock->block($lockWait);
+            } catch (LockTimeoutException) {
+                // block() throws on timeout rather than returning false; normalise to bool.
+                $lockAcquired = false;
+            }
+
             $telemetry->recordTiming('lock_acquisition_time', (microtime(true) - $lockStart) * 1000);
 
             $cached = $store->get($keys['response']);
