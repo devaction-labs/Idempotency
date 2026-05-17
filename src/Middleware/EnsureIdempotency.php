@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DevactionLabs\Idempotency\Middleware;
 
 use Closure;
+use DevactionLabs\Idempotency\Contracts\CacheabilityChecker;
 use DevactionLabs\Idempotency\Contracts\KeyValidator;
 use DevactionLabs\Idempotency\Contracts\PayloadHasher;
 use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
@@ -379,7 +380,13 @@ final class EnsureIdempotency
 
     private function shouldCache(Response $response): bool
     {
-        if (! DefaultResponseSerializer::isCacheable($response)) {
+        // Prefer the CacheabilityChecker contract when the serializer implements it;
+        // fall back to the static helper so existing custom serializers are unaffected.
+        $cacheable = $this->responseSerializer instanceof CacheabilityChecker
+            ? $this->responseSerializer->isCacheable($response)
+            : DefaultResponseSerializer::isCacheable($response);
+
+        if (! $cacheable) {
             return false;
         }
 
