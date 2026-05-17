@@ -26,7 +26,12 @@ final class IdempotencyManager
 
     /**
      * Flush every cache entry associated with an idempotency key.
-     * Pass null to flush everything (not supported on all stores — falls back to per-key).
+     *
+     * Bulk flush (key === null) is intentionally not supported: reliable
+     * wildcard deletion requires a key-scanning API that is unavailable on all
+     * cache backends (e.g. Redis SCAN vs array driver). Passing null is a
+     * documented no-op — use the `idempotency:flush` Artisan command or your
+     * cache backend's native tools for bulk cleanup.
      */
     public function flush(?string $key = null, ?string $scope = null): void
     {
