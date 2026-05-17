@@ -7,6 +7,7 @@ namespace DevactionLabs\Idempotency;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository as Config;
+use Psr\SimpleCache\InvalidArgumentException;
 
 final class IdempotencyManager
 {
@@ -15,6 +16,9 @@ final class IdempotencyManager
         private readonly Config $config,
     ) {}
 
+    /**
+     * @throws InvalidArgumentException
+     */
     public function has(string $key, ?string $scope = null): bool
     {
         return $this->store()->has($this->responseKey($key, $scope));
