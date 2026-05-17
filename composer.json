@@ -60,7 +60,8 @@
     "pestphp/pest-plugin-laravel": "^3.0|^4.0"
   },
   "suggest": {
-    "inspector-apm/inspector-laravel": "Required for the Inspector telemetry driver (^4.11)."
+    "inspector-apm/inspector-laravel": "Required for the Inspector telemetry driver (^4.11).",
+    "open-telemetry/api": "Required for the OpenTelemetry telemetry driver (^1.0)."
   },
   "scripts": {
     "test": "vendor/bin/pest",
