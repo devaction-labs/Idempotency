@@ -128,7 +128,10 @@ final class EnsureIdempotency
             [$k, $v] = explode('=', $raw, 2);
 
             if ($k === 'ttl') {
-                $opts['ttl'] = (int) $v;
+                $val = (int) $v;
+                // A zero or negative TTL would cause undefined behaviour across cache drivers;
+                // treat it as "no override" and let the global config value apply.
+                $opts['ttl'] = $val > 0 ? $val : null;
             } elseif ($k === 'scope') {
                 $opts['scope'] = $v;
             }
