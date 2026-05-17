@@ -33,7 +33,15 @@ final class AlertDispatcher
     /** @param array<string,mixed> $context */
     private function shouldSend(EventType $eventType, array $context): bool
     {
-        $fingerprint = hash('sha256', $eventType->value.':'.json_encode($context, JSON_THROW_ON_ERROR));
+        try {
+            $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            // Non-serializable context (e.g. nested objects): fall back to serialize()
+            // so the fingerprint remains stable and the alert is not silently dropped.
+            $encoded = serialize($context);
+        }
+
+        $fingerprint = hash('sha256', $eventType->value.':'.$encoded);
         $cacheKey = "idempotency:alert_sent:{$fingerprint}";
         $storeName = $this->configStr($this->config, 'idempotency.cache_store', '');
         $store = $this->cache->store($storeName === '' ? null : $storeName);
