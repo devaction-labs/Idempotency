@@ -26,6 +26,7 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -49,6 +50,8 @@ final class EnsureIdempotency
      *   ':optional'           → missing key is allowed, request passes through
      *   ':ttl=600'            → override ttl (seconds) for this route
      *   ':scope=user_route'   → override scope
+     *
+     * @throws Throwable
      */
     public function handle(Request $request, Closure $next, string ...$params): mixed
     {
@@ -130,10 +133,11 @@ final class EnsureIdempotency
 
             if ($k === 'ttl') {
                 $val = (int) $v;
-                // A zero or negative TTL would cause undefined behaviour across cache drivers;
-                // treat it as "no override" and let the global config value apply.
                 $opts['ttl'] = $val > 0 ? $val : null;
-            } elseif ($k === 'scope') {
+                continue;
+            }
+
+            if ($k === 'scope') {
                 $opts['scope'] = $v;
             }
         }
@@ -151,7 +155,7 @@ final class EnsureIdempotency
         $scopeEnum = Scope::tryFrom($override);
 
         return $scopeEnum !== null
-            ? (new DefaultScopeResolver($scopeEnum))->resolve($request)
+            ? new DefaultScopeResolver($scopeEnum)->resolve($request)
             : $override; // raw string prefix for custom partitioning
     }
 
@@ -160,7 +164,9 @@ final class EnsureIdempotency
         $methods = $this->configArr($this->config, 'idempotency.methods', []);
         $upper = array_map(static fn ($m): string => is_string($m) ? strtoupper($m) : '', $methods);
 
-        return in_array(strtoupper($request->method()), $upper, true);
+        return $request->method()
+                |> strtoupper(...)
+                |> (static fn ($x) => in_array($x, $upper, true));
     }
 
     private function reject(
@@ -198,7 +204,7 @@ final class EnsureIdempotency
         $store = $this->cacheFactory->store(is_string($name) ? $name : null);
 
         if (! $store instanceof CacheRepository) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 'Idempotency requires a cache store backed by Illuminate\\Cache\\Repository '.
                 '(needs lock support). Got: '.$store::class
             );
@@ -277,7 +283,6 @@ final class EnsureIdempotency
             try {
                 $lockAcquired = $lock->block($lockWait);
             } catch (LockTimeoutException) {
-                // block() throws on timeout rather than returning false; normalise to bool.
                 $lockAcquired = false;
             }
 
@@ -378,9 +383,13 @@ final class EnsureIdempotency
 
         $this->addHeaders($response, $idempotencyKey, 'Original');
 
-        if ($this->shouldCache($response)) {
+        $cacheable = $this->shouldCache($response);
+
+        if ($cacheable) {
             $this->cacheResponse($store, $keys['response'], $response, $request, $ttl, $telemetry);
-        } else {
+        }
+
+        if (! $cacheable) {
             $telemetry->recordMetric('responses.not_cached');
         }
 
@@ -394,8 +403,6 @@ final class EnsureIdempotency
 
     private function shouldCache(Response $response): bool
     {
-        // Prefer the CacheabilityChecker contract when the serializer implements it;
-        // fall back to the static helper so existing custom serializers are unaffected.
         $cacheable = $this->responseSerializer instanceof CacheabilityChecker
             ? $this->responseSerializer->isCacheable($response)
             : DefaultResponseSerializer::isCacheable($response);
@@ -424,9 +431,7 @@ final class EnsureIdempotency
             $serialized = $this->responseSerializer->serialize($response);
             $store->put($cacheKey, $serialized, $ttl);
 
-            // Measure the serialized entry (headers + body) rather than body alone
-            // to get an accurate approximation of cache memory usage.
-            $encoded = json_encode($serialized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $encoded = json_encode($serialized, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $size = strlen($encoded !== false ? $encoded : serialize($serialized));
             $telemetry->recordSize('response_size', $size);
 
@@ -486,15 +491,20 @@ final class EnsureIdempotency
         if (is_array($cached)) {
             /** @var array<string,mixed> $cached */
             $response = $this->responseSerializer->deserialize($cached);
-        } elseif ($cached instanceof Response) {
-            $response = $cached;
-        } else {
-            // Backwards-compat with any pre-v2 entries still in cache.
-            $response = new \Illuminate\Http\Response(
-                is_scalar($cached) ? (string) $cached : ''
-            );
+            $this->addHeaders($response, $idempotencyKey, $status);
+
+            return $response;
         }
 
+        if ($cached instanceof Response) {
+            $this->addHeaders($cached, $idempotencyKey, $status);
+
+            return $cached;
+        }
+
+        $response = new \Illuminate\Http\Response(
+            is_scalar($cached) ? (string) $cached : ''
+        );
         $this->addHeaders($response, $idempotencyKey, $status);
 
         return $response;
