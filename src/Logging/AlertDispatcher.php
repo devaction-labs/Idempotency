@@ -9,6 +9,8 @@ use DevactionLabs\Idempotency\Support\ConfigAccess;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Contracts\Events\Dispatcher;
+use JsonException;
+use Psr\SimpleCache\InvalidArgumentException;
 
 final class AlertDispatcher
 {
@@ -30,14 +32,14 @@ final class AlertDispatcher
         $this->events->dispatch(new IdempotencyAlertFired($eventType, $context));
     }
 
-    /** @param array<string,mixed> $context */
+    /** @param array<string,mixed> $context
+     * @throws InvalidArgumentException
+     */
     private function shouldSend(EventType $eventType, array $context): bool
     {
         try {
             $encoded = json_encode($context, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            // Non-serializable context (e.g. nested objects): fall back to serialize()
-            // so the fingerprint remains stable and the alert is not silently dropped.
+        } catch (JsonException) {
             $encoded = serialize($context);
         }
 

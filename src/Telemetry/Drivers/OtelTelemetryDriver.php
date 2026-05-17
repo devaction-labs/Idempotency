@@ -26,7 +26,7 @@ final class OtelTelemetryDriver implements TelemetryDriver
 
         return Globals::tracerProvider()
             ->getTracer(self::INSTRUMENTATION)
-            ->spanBuilder('' !== $spanName ? $spanName : self::INSTRUMENTATION)
+            ->spanBuilder($spanName !== '' ? $spanName : self::INSTRUMENTATION)
             ->setAttribute('idempotency.segment_type', $type)
             ->startSpan();
     }

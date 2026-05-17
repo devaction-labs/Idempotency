@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DevactionLabs\Idempotency\Events;
 
+use DateTimeImmutable;
 use DevactionLabs\Idempotency\Logging\EventType;
 use Illuminate\Foundation\Events\Dispatchable;
 
@@ -15,6 +16,6 @@ final class IdempotencyAlertFired
     public function __construct(
         public readonly EventType $eventType,
         public readonly array $context = [],
-        public readonly \DateTimeImmutable $firedAt = new \DateTimeImmutable,
+        public readonly DateTimeImmutable $firedAt = new DateTimeImmutable,
     ) {}
 }
