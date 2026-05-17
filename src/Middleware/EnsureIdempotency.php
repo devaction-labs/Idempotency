@@ -14,6 +14,8 @@ use DevactionLabs\Idempotency\Logging\AlertDispatcher;
 use DevactionLabs\Idempotency\Logging\EventType;
 use DevactionLabs\Idempotency\Support\ConfigAccess;
 use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
+use DevactionLabs\Idempotency\Support\DefaultScopeResolver;
+use DevactionLabs\Idempotency\Support\Scope;
 use DevactionLabs\Idempotency\Telemetry\TelemetryManager;
 use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -89,7 +91,7 @@ final class EnsureIdempotency
                 'Invalid '.$headerName.' format');
         }
 
-        $scopePrefix = $this->scopeResolver->resolve($request);
+        $scopePrefix = $this->resolveScope($opts['scope'], $request);
         $keys = $this->keysFor($idempotencyKey, $scopePrefix);
         $ttl = $opts['ttl'] ?? $this->configInt($this->config, 'idempotency.ttl', 86_400);
         $store = $this->store();
@@ -132,6 +134,20 @@ final class EnsureIdempotency
         }
 
         return $opts;
+    }
+
+    private function resolveScope(?string $override, Request $request): string
+    {
+        if ($override === null) {
+            return $this->scopeResolver->resolve($request);
+        }
+
+        // Allow ':scope=user_route' (or any Scope enum value) to switch strategy per route.
+        $scopeEnum = Scope::tryFrom($override);
+
+        return $scopeEnum !== null
+            ? (new DefaultScopeResolver($scopeEnum))->resolve($request)
+            : $override; // raw string prefix for custom partitioning
     }
 
     private function methodApplies(Request $request): bool
