@@ -238,7 +238,7 @@ final class EnsureIdempotency
             ], 422);
         }
 
-        $telemetry->recordMetric('cache.hit');
+        $telemetry->recordMetric(EventType::CACHE_HIT->value);
         $metadata = $this->touchMetadata($keys['metadata'], $ttl, $store);
         $this->maybeAlertThreshold($metadata, $idempotencyKey, $request);
 
@@ -278,7 +278,7 @@ final class EnsureIdempotency
 
             $cached = $store->get($keys['response']);
             if ($cached !== null) {
-                $telemetry->recordMetric('cache.late_hit');
+                $telemetry->recordMetric(EventType::CACHE_LATE_HIT->value);
                 $telemetry->addSegmentContext($segment, 'status', 'late_duplicate');
                 $telemetry->endSegment($segment);
 
@@ -360,7 +360,7 @@ final class EnsureIdempotency
             'client_ip' => $request->ip(),
         ], $ttl);
 
-        $telemetry->recordMetric('requests.original');
+        $telemetry->recordMetric(EventType::RESPONSE_ORIGINAL->value);
         $processingStart = microtime(true);
 
         /** @var Response $response */
