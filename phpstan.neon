@@ -6,6 +6,8 @@ parameters:
     paths:
         - src
     tmpDir: .phpstan.cache
+    parallel:
+        maximumNumberOfProcesses: 1
     treatPhpDocTypesAsCertain: false
     reportUnmatchedIgnoredErrors: false
     ignoreErrors:
