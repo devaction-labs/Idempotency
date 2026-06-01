@@ -146,6 +146,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Response Replay
+    |--------------------------------------------------------------------------
+    |
+    | Headers that should not be stored for replay. The default serializer also
+    | strips sensitive and hop-by-hop headers such as Set-Cookie and
+    | Authorization. Add application-specific headers here.
+    |
+    */
+    'response' => [
+        'strip_headers' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Response Size Warning (bytes)
     |--------------------------------------------------------------------------
     |

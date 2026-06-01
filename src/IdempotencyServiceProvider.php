@@ -86,7 +86,15 @@ final class IdempotencyServiceProvider extends ServiceProvider
             return new DefaultScopeResolver(Scope::tryFrom($scope) ?? Scope::USER_ROUTE);
         });
 
-        $this->app->bind(ResponseSerializer::class, DefaultResponseSerializer::class);
+        $this->app->bind(ResponseSerializer::class, static function (Application $app): ResponseSerializer {
+            /** @var Config $config */
+            $config = $app->make('config');
+            $stripHeaders = $config->get('idempotency.response.strip_headers', []);
+
+            return new DefaultResponseSerializer(
+                is_array($stripHeaders) ? array_values(array_filter($stripHeaders, 'is_string')) : [],
+            );
+        });
     }
 
     public function boot(): void

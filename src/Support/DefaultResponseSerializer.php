@@ -13,7 +13,30 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class DefaultResponseSerializer implements ResponseSerializer
 {
-    private const STRIP_HEADERS = ['date', 'x-idempotency-replay-of'];
+    private const STRIP_HEADERS = [
+        'authorization',
+        'connection',
+        'date',
+        'keep-alive',
+        'proxy-authenticate',
+        'set-cookie',
+        'transfer-encoding',
+        'upgrade',
+        'www-authenticate',
+        'x-idempotency-replay-of',
+    ];
+
+    /** @var list<string> */
+    private readonly array $stripHeaders;
+
+    /** @param list<string> $stripHeaders */
+    public function __construct(array $stripHeaders = [])
+    {
+        $this->stripHeaders = array_values(array_unique(array_merge(
+            self::STRIP_HEADERS,
+            array_map(static fn (string $header): string => strtolower($header), $stripHeaders),
+        )));
+    }
 
     /**
      * @return array{class:class-string,status:int,content:string,headers:array<string,list<string|null>>}
@@ -24,7 +47,7 @@ final class DefaultResponseSerializer implements ResponseSerializer
         $headers = [];
 
         foreach ($response->headers->all() as $name => $values) {
-            if (in_array(strtolower($name), self::STRIP_HEADERS, true)) {
+            if (in_array(strtolower($name), $this->stripHeaders, true)) {
                 continue;
             }
             $headers[$name] = $values;

@@ -239,6 +239,25 @@ The package guards against "same key, different body" by hashing the payload and
 
 ---
 
+## Response replay headers
+
+The default serializer stores response status, body, and replay-safe headers. It
+does not store sensitive or hop-by-hop headers such as `Set-Cookie`,
+`Authorization`, `WWW-Authenticate`, `Connection`, or `Transfer-Encoding`.
+
+Add application-specific headers to the strip list when publishing the config:
+
+```php
+'response' => [
+    'strip_headers' => ['X-Internal-Token'],
+],
+```
+
+If an endpoint must replay a normally stripped header, bind a custom
+`ResponseSerializer` for that application.
+
+---
+
 ## Events and alerts
 
 The package dispatches `IdempotencyAlertFired` whenever something interesting happens. Listen for it and route to logs, Sentry, Slack — whatever:
