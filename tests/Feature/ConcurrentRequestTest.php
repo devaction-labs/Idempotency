@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use DevactionLabs\Idempotency\Middleware\EnsureIdempotency;
+use DevactionLabs\Idempotency\Support\CacheKeys;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
@@ -25,12 +26,14 @@ beforeEach(function () {
 $key = '123e4567-e89b-12d3-a456-426614174099';
 
 it('returns 409 with Retry-After when the same key is being processed concurrently', function () use ($key) {
+    $keys = CacheKeys::for($key, '');
+
     // Hold the lock to simulate an in-flight worker.
-    $lock = Cache::lock('idempotency_lock:'.$key, 30);
+    $lock = Cache::lock($keys['lock'], 30);
     expect($lock->acquire())->toBeTrue();
 
     // Seed the processing marker so the middleware knows a request is in-flight.
-    Cache::put('idempotency:'.$key.':processing', true, 300);
+    Cache::put($keys['processing'], true, 300);
 
     try {
         $this->postJson('/order', ['amount' => 1], ['Idempotency-Key' => $key])
@@ -38,16 +41,18 @@ it('returns 409 with Retry-After when the same key is being processed concurrent
             ->assertHeader('Retry-After')
             ->assertJson(['error' => 'A request with this idempotency key is currently being processed']);
 
-        expect(Cache::has('idempotency:'.$key.':processing'))->toBeTrue();
+        expect(Cache::has($keys['processing']))->toBeTrue();
     } finally {
         $lock->release();
     }
 });
 
 it('returns 503 with Retry-After on lock timeout when no processing marker exists', function () use ($key) {
+    $keys = CacheKeys::for($key, '');
+
     // Hold the lock without seeding a processing marker — simulates a worker that
     // acquired the lock but died before writing the processing flag (inconsistency).
-    $lock = Cache::lock('idempotency_lock:'.$key, 30);
+    $lock = Cache::lock($keys['lock'], 30);
     expect($lock->acquire())->toBeTrue();
 
     try {
@@ -61,9 +66,11 @@ it('returns 503 with Retry-After on lock timeout when no processing marker exist
 });
 
 it('clears the processing marker after the lock owner finishes', function () use ($key) {
+    $keys = CacheKeys::for($key, '');
+
     $this->postJson('/order', ['amount' => 1], ['Idempotency-Key' => $key])
         ->assertStatus(201)
         ->assertHeader('Idempotency-Status', 'Original');
 
-    expect(Cache::has('idempotency:'.$key.':processing'))->toBeFalse();
+    expect(Cache::has($keys['processing']))->toBeFalse();
 });

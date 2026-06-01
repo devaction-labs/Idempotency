@@ -13,6 +13,7 @@ use DevactionLabs\Idempotency\Contracts\ScopeResolver;
 use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
 use DevactionLabs\Idempotency\Logging\AlertDispatcher;
 use DevactionLabs\Idempotency\Logging\EventType;
+use DevactionLabs\Idempotency\Support\CacheKeys;
 use DevactionLabs\Idempotency\Support\ConfigAccess;
 use DevactionLabs\Idempotency\Support\DefaultResponseSerializer;
 use DevactionLabs\Idempotency\Support\DefaultScopeResolver;
@@ -188,15 +189,7 @@ final class EnsureIdempotency
     /** @return array{response:string, processing:string, metadata:string, lock:string, payload_hash:string} */
     private function keysFor(string $key, string $scope): array
     {
-        $prefix = 'idempotency:'.($scope === '' ? '' : $scope.':').$key;
-
-        return [
-            'response' => $prefix.':response',
-            'processing' => $prefix.':processing',
-            'metadata' => $prefix.':metadata',
-            'lock' => 'idempotency_lock:'.($scope === '' ? '' : $scope.':').$key,
-            'payload_hash' => $prefix.':payload_hash',
-        ];
+        return CacheKeys::for($key, $scope);
     }
 
     private function store(): CacheRepository

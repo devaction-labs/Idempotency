@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DevactionLabs\Idempotency;
 
+use DevactionLabs\Idempotency\Support\CacheKeys;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -39,13 +40,12 @@ final class IdempotencyManager
             return;
         }
 
-        $prefix = $this->prefix($key, $scope);
+        $keys = CacheKeys::for($key, $scope);
         $store = $this->store();
         foreach (['response', 'processing', 'metadata', 'payload_hash'] as $segment) {
-            $store->forget($prefix.':'.$segment);
+            $store->forget($keys[$segment]);
         }
-        $lockKey = 'idempotency_lock:'.ltrim(substr($prefix, strlen('idempotency:')), ':');
-        $store->forget($lockKey);
+        $store->forget($keys['lock']);
     }
 
     private function store(): CacheRepository
@@ -57,11 +57,6 @@ final class IdempotencyManager
 
     private function responseKey(string $key, ?string $scope): string
     {
-        return $this->prefix($key, $scope).':response';
-    }
-
-    private function prefix(string $key, ?string $scope): string
-    {
-        return 'idempotency:'.($scope === null || $scope === '' ? '' : $scope.':').$key;
+        return CacheKeys::for($key, $scope)['response'];
     }
 }
