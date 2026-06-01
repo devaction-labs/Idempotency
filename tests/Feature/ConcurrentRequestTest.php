@@ -37,6 +37,8 @@ it('returns 409 with Retry-After when the same key is being processed concurrent
             ->assertStatus(409)
             ->assertHeader('Retry-After')
             ->assertJson(['error' => 'A request with this idempotency key is currently being processed']);
+
+        expect(Cache::has('idempotency:'.$key.':processing'))->toBeTrue();
     } finally {
         $lock->release();
     }
@@ -56,4 +58,12 @@ it('returns 503 with Retry-After on lock timeout when no processing marker exist
     } finally {
         $lock->release();
     }
+});
+
+it('clears the processing marker after the lock owner finishes', function () use ($key) {
+    $this->postJson('/order', ['amount' => 1], ['Idempotency-Key' => $key])
+        ->assertStatus(201)
+        ->assertHeader('Idempotency-Status', 'Original');
+
+    expect(Cache::has('idempotency:'.$key.':processing'))->toBeFalse();
 });

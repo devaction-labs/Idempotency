@@ -337,7 +337,6 @@ final class EnsureIdempotency
             ]);
             throw $e;
         } finally {
-            $store->forget($keys['processing']);
             if ($lockAcquired) {
                 $lock->release();
             }
@@ -360,46 +359,50 @@ final class EnsureIdempotency
         $processingTtl = $this->configInt($this->config, 'idempotency.processing_ttl', 300);
 
         $store->put($keys['processing'], true, $processingTtl);
-        $store->put($keys['payload_hash'], $this->payloadHasher->hash($request), $ttl);
+        try {
+            $store->put($keys['payload_hash'], $this->payloadHasher->hash($request), $ttl);
 
-        $user = $request->user();
-        $userId = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
+            $user = $request->user();
+            $userId = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
 
-        $store->put($keys['metadata'], [
-            'created_at' => time(),
-            'hit_count' => 0,
-            'endpoint' => $request->path(),
-            'user_id' => $userId,
-            'client_ip' => $request->ip(),
-        ], $ttl);
+            $store->put($keys['metadata'], [
+                'created_at' => time(),
+                'hit_count' => 0,
+                'endpoint' => $request->path(),
+                'user_id' => $userId,
+                'client_ip' => $request->ip(),
+            ], $ttl);
 
-        $telemetry->recordMetric(EventType::RESPONSE_ORIGINAL->value);
-        $processingStart = microtime(true);
+            $telemetry->recordMetric(EventType::RESPONSE_ORIGINAL->value);
+            $processingStart = microtime(true);
 
-        /** @var Response $response */
-        $response = $next($request);
+            /** @var Response $response */
+            $response = $next($request);
 
-        $processingTime = (microtime(true) - $processingStart) * 1000;
-        $telemetry->recordTiming('request_processing_time', $processingTime);
+            $processingTime = (microtime(true) - $processingStart) * 1000;
+            $telemetry->recordTiming('request_processing_time', $processingTime);
 
-        $this->addHeaders($response, $idempotencyKey, 'Original');
+            $this->addHeaders($response, $idempotencyKey, 'Original');
 
-        $cacheable = $this->shouldCache($response);
+            $cacheable = $this->shouldCache($response);
 
-        if ($cacheable) {
-            $this->cacheResponse($store, $keys['response'], $response, $request, $ttl, $telemetry);
+            if ($cacheable) {
+                $this->cacheResponse($store, $keys['response'], $response, $request, $ttl, $telemetry);
+            }
+
+            if (! $cacheable) {
+                $telemetry->recordMetric('responses.not_cached');
+            }
+
+            $telemetry->addSegmentContext($segment, 'status', 'original');
+            $telemetry->addSegmentContext($segment, 'status_code', $response->getStatusCode());
+            $telemetry->addSegmentContext($segment, 'processing_time_ms', $processingTime);
+            $telemetry->endSegment($segment);
+
+            return $response;
+        } finally {
+            $store->forget($keys['processing']);
         }
-
-        if (! $cacheable) {
-            $telemetry->recordMetric('responses.not_cached');
-        }
-
-        $telemetry->addSegmentContext($segment, 'status', 'original');
-        $telemetry->addSegmentContext($segment, 'status_code', $response->getStatusCode());
-        $telemetry->addSegmentContext($segment, 'processing_time_ms', $processingTime);
-        $telemetry->endSegment($segment);
-
-        return $response;
     }
 
     private function shouldCache(Response $response): bool
