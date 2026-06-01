@@ -609,7 +609,13 @@ php artisan idempotency:flush 123e4567-e89b-12d3-a456-426614174000
 
 # Scoped keys need the scope prefix you used when writing
 php artisan idempotency:flush 123e4567-e89b-12d3-a456-426614174000 --scope=u42
+
+# Validate production-critical configuration before deploying
+php artisan idempotency:doctor
 ```
+
+The doctor command checks the hash algorithm, TTL ranges, lock TTL consistency,
+and whether the configured cache store can acquire atomic locks.
 
 You can also reach the same behaviour programmatically through the facade:
 

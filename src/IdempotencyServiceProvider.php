@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DevactionLabs\Idempotency;
 
+use DevactionLabs\Idempotency\Console\DoctorCommand;
 use DevactionLabs\Idempotency\Console\FlushCommand;
 use DevactionLabs\Idempotency\Contracts\KeyValidator;
 use DevactionLabs\Idempotency\Contracts\PayloadHasher;
@@ -110,7 +111,7 @@ final class IdempotencyServiceProvider extends ServiceProvider
         ], 'idempotency-config');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([FlushCommand::class]);
+            $this->commands([DoctorCommand::class, FlushCommand::class]);
         }
 
         /** @var Router $router */
