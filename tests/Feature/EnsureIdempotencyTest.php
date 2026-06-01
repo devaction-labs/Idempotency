@@ -130,3 +130,11 @@ it('honors the configured header name', function () use ($uuid) {
         ->assertHeader('X-Idempotency-Key', $uuid())
         ->assertHeader('Idempotency-Status', 'Original');
 });
+
+it('returns 413 when payload hashing exceeds the configured size limit', function () use ($uuid) {
+    config(['idempotency.payload.max_payload_bytes' => 10]);
+
+    $this->postJson('/pay', ['description' => str_repeat('x', 50)], ['Idempotency-Key' => $uuid()])
+        ->assertStatus(413)
+        ->assertJsonStructure(['error']);
+});

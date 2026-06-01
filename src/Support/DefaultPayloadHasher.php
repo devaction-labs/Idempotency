@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DevactionLabs\Idempotency\Support;
 
 use DevactionLabs\Idempotency\Contracts\PayloadHasher;
+use DevactionLabs\Idempotency\Exceptions\PayloadHashLimitExceeded;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use JsonException;
@@ -19,6 +20,9 @@ final class DefaultPayloadHasher implements PayloadHasher
         private readonly bool $sortKeys = true,
         private readonly array $ignore = [],
         private readonly bool $includeFiles = true,
+        private readonly bool $hashFileContents = true,
+        private readonly ?int $maxPayloadBytes = null,
+        private readonly ?int $maxFileBytes = null,
     ) {}
 
     /**
@@ -48,6 +52,8 @@ final class DefaultPayloadHasher implements PayloadHasher
         if ($json === false) {
             $json = serialize($data);
         }
+
+        $this->assertPayloadWithinLimit(strlen($json));
 
         return hash($this->algo, $json);
     }
@@ -145,11 +151,32 @@ final class DefaultPayloadHasher implements PayloadHasher
     /** @return array{name:string,size:int|false,mime:string,hash:string|null} */
     private function fileFingerprint(UploadedFile $file): array
     {
+        $size = $file->getSize();
+        $this->assertFileWithinLimit($file, $size);
+
         return [
             'name' => $file->getClientOriginalName(),
-            'size' => $file->getSize(),
+            'size' => $size,
             'mime' => $file->getClientMimeType(),
-            'hash' => $file->isValid() ? (string) hash_file('xxh128', $file->getRealPath()) : null,
+            'hash' => $file->isValid() && $this->hashFileContents
+                ? (string) hash_file('xxh128', $file->getRealPath())
+                : null,
         ];
+    }
+
+    private function assertPayloadWithinLimit(int $bytes): void
+    {
+        if ($this->maxPayloadBytes !== null && $this->maxPayloadBytes > 0 && $bytes > $this->maxPayloadBytes) {
+            throw PayloadHashLimitExceeded::payload($bytes, $this->maxPayloadBytes);
+        }
+    }
+
+    private function assertFileWithinLimit(UploadedFile $file, int|false $bytes): void
+    {
+        if ($bytes === false || $this->maxFileBytes === null || $this->maxFileBytes <= 0 || $bytes <= $this->maxFileBytes) {
+            return;
+        }
+
+        throw PayloadHashLimitExceeded::file($file->getClientOriginalName(), $bytes, $this->maxFileBytes);
     }
 }

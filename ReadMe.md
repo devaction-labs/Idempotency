@@ -230,12 +230,20 @@ The package guards against "same key, different body" by hashing the payload and
 
 ```php
 'payload' => [
-    'algo'          => 'sha256',
-    'sort_keys'     => true,
-    'ignore'        => ['timestamp', 'captured_at'],
-    'include_files' => true,
+    'algo'               => 'sha256',
+    'sort_keys'          => true,
+    'ignore'             => ['timestamp', 'captured_at'],
+    'include_files'      => true,
+    'hash_file_contents' => true,
+    'max_payload_bytes'  => null,
+    'max_file_bytes'     => null,
 ],
 ```
+
+For public upload endpoints, set `max_payload_bytes` and `max_file_bytes` to
+fail closed with `413` before the middleware spends unbounded CPU or disk I/O on
+hashing. If file metadata is enough for a route, set `hash_file_contents` to
+`false` and keep `include_files` enabled.
 
 ---
 

@@ -120,6 +120,8 @@ return [
     | sort:    canonicalize array keys so {"a":1,"b":2} == {"b":2,"a":1}.
     | ignore:  dot-notation paths to strip before hashing (e.g. timestamps).
     | include_files: whether uploaded files are included in the hash.
+    | hash_file_contents: whether file fingerprints include content hashes.
+    | max_*_bytes: optional fail-closed limits; null or <= 0 means unlimited.
     |
     */
     'payload' => [
@@ -127,6 +129,13 @@ return [
         'sort_keys' => true,
         'ignore' => [],
         'include_files' => true,
+        'hash_file_contents' => true,
+        'max_payload_bytes' => env('IDEMPOTENCY_MAX_PAYLOAD_BYTES') !== null
+            ? (int) env('IDEMPOTENCY_MAX_PAYLOAD_BYTES')
+            : null,
+        'max_file_bytes' => env('IDEMPOTENCY_MAX_FILE_BYTES') !== null
+            ? (int) env('IDEMPOTENCY_MAX_FILE_BYTES')
+            : null,
     ],
 
     /*

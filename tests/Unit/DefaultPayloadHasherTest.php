@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use DevactionLabs\Idempotency\Exceptions\PayloadHashLimitExceeded;
 use DevactionLabs\Idempotency\Support\DefaultPayloadHasher;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -68,6 +69,35 @@ it('excludes uploaded files when configured not to include files', function () {
     ]);
     $b = Request::create('/x', 'POST', ['amount' => 10], [], [
         'receipt' => UploadedFile::fake()->createWithContent('receipt.txt', 'beta'),
+    ]);
+
+    expect($hasher->hash($a))->toBe($hasher->hash($b));
+});
+
+it('rejects payloads larger than the configured hashing limit', function () {
+    $hasher = new DefaultPayloadHasher(maxPayloadBytes: 10);
+    $request = Request::create('/x', 'POST', ['description' => str_repeat('x', 50)]);
+
+    expect(fn () => $hasher->hash($request))->toThrow(PayloadHashLimitExceeded::class);
+});
+
+it('rejects uploaded files larger than the configured hashing limit', function () {
+    $hasher = new DefaultPayloadHasher(maxFileBytes: 2);
+    $request = Request::create('/x', 'POST', ['amount' => 10], [], [
+        'receipt' => UploadedFile::fake()->createWithContent('receipt.txt', 'alpha'),
+    ]);
+
+    expect(fn () => $hasher->hash($request))->toThrow(PayloadHashLimitExceeded::class);
+});
+
+it('can fingerprint files without hashing file contents', function () {
+    $hasher = new DefaultPayloadHasher(hashFileContents: false);
+
+    $a = Request::create('/x', 'POST', ['amount' => 10], [], [
+        'receipt' => UploadedFile::fake()->createWithContent('receipt.txt', 'alpha'),
+    ]);
+    $b = Request::create('/x', 'POST', ['amount' => 10], [], [
+        'receipt' => UploadedFile::fake()->createWithContent('receipt.txt', 'bravo'),
     ]);
 
     expect($hasher->hash($a))->toBe($hasher->hash($b));

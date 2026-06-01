@@ -61,12 +61,18 @@ final class IdempotencyServiceProvider extends ServiceProvider
             $sortKeys = $config->get('idempotency.payload.sort_keys', true);
             $ignore = $config->get('idempotency.payload.ignore', []);
             $includeFiles = $config->get('idempotency.payload.include_files', true);
+            $hashFileContents = $config->get('idempotency.payload.hash_file_contents', true);
+            $maxPayloadBytes = $config->get('idempotency.payload.max_payload_bytes');
+            $maxFileBytes = $config->get('idempotency.payload.max_file_bytes');
 
             return new DefaultPayloadHasher(
                 is_string($algo) ? $algo : 'sha256',
                 is_bool($sortKeys) ? $sortKeys : true,
                 is_array($ignore) ? array_values(array_filter($ignore, 'is_string')) : [],
                 is_bool($includeFiles) ? $includeFiles : true,
+                is_bool($hashFileContents) ? $hashFileContents : true,
+                is_int($maxPayloadBytes) ? $maxPayloadBytes : null,
+                is_int($maxFileBytes) ? $maxFileBytes : null,
             );
         });
 

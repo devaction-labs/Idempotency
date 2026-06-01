@@ -11,6 +11,7 @@ use DevactionLabs\Idempotency\Contracts\PayloadHasher;
 use DevactionLabs\Idempotency\Contracts\ResponseSerializer;
 use DevactionLabs\Idempotency\Contracts\ScopeResolver;
 use DevactionLabs\Idempotency\Contracts\TelemetryDriver;
+use DevactionLabs\Idempotency\Exceptions\PayloadHashLimitExceeded;
 use DevactionLabs\Idempotency\Logging\AlertDispatcher;
 use DevactionLabs\Idempotency\Logging\EventType;
 use DevactionLabs\Idempotency\Support\CacheKeys;
@@ -222,7 +223,11 @@ final class EnsureIdempotency
         CacheRepository $store,
     ): Response {
         $storedHash = $store->get($keys['payload_hash']);
-        $currentHash = $this->payloadHasher->hash($request);
+        try {
+            $currentHash = $this->payloadHasher->hash($request);
+        } catch (PayloadHashLimitExceeded $e) {
+            return $this->rejectPayloadTooLarge($telemetry, $segment, $e);
+        }
 
         if (is_string($storedHash) && ! hash_equals($storedHash, $currentHash)) {
             $telemetry->recordMetric('errors.payload_mismatch');
@@ -353,7 +358,11 @@ final class EnsureIdempotency
 
         $store->put($keys['processing'], true, $processingTtl);
         try {
-            $store->put($keys['payload_hash'], $this->payloadHasher->hash($request), $ttl);
+            try {
+                $store->put($keys['payload_hash'], $this->payloadHasher->hash($request), $ttl);
+            } catch (PayloadHashLimitExceeded $e) {
+                return $this->rejectPayloadTooLarge($telemetry, $segment, $e);
+            }
 
             $user = $request->user();
             $userId = $user instanceof Authenticatable ? $user->getAuthIdentifier() : null;
@@ -396,6 +405,18 @@ final class EnsureIdempotency
         } finally {
             $store->forget($keys['processing']);
         }
+    }
+
+    private function rejectPayloadTooLarge(
+        TelemetryDriver $telemetry,
+        mixed $segment,
+        PayloadHashLimitExceeded $exception,
+    ): JsonResponse {
+        $telemetry->recordMetric('errors.payload_too_large');
+        $telemetry->addSegmentContext($segment, 'error', 'payload_too_large');
+        $telemetry->endSegment($segment);
+
+        return new JsonResponse(['error' => $exception->getMessage()], 413);
     }
 
     private function shouldCache(Response $response): bool
