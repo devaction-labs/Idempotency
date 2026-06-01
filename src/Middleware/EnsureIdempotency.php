@@ -68,7 +68,7 @@ final class EnsureIdempotency
         $segment = $telemetry->startSegment('idempotency', 'Idempotency Middleware');
         $telemetry->recordMetric('requests.total');
         $telemetry->addSegmentContext($segment, 'method', $request->method());
-        $telemetry->addSegmentContext($segment, 'path', $request->path());
+        $telemetry->addSegmentContext($segment, 'endpoint', $this->endpointLabel($request));
 
         if (! $this->methodApplies($request)) {
             $telemetry->addSegmentContext($segment, 'skipped', 'method_not_applicable');
@@ -236,7 +236,7 @@ final class EnsureIdempotency
 
             $this->alerts->dispatch(EventType::PAYLOAD_MISMATCH, [
                 'idempotency_key' => $idempotencyKey,
-                'endpoint' => $request->path(),
+                'endpoint' => $this->endpointLabel($request),
             ]);
 
             return new JsonResponse([
@@ -300,7 +300,7 @@ final class EnsureIdempotency
                 if ($store->has($keys['processing'])) {
                     $this->alerts->dispatch(EventType::CONCURRENT_CONFLICT, [
                         'idempotency_key' => $idempotencyKey,
-                        'endpoint' => $request->path(),
+                        'endpoint' => $this->endpointLabel($request),
                     ]);
                     $telemetry->recordMetric('responses.concurrent_conflict');
                     $telemetry->endSegment($segment);
@@ -314,7 +314,7 @@ final class EnsureIdempotency
 
                 $this->alerts->dispatch(EventType::LOCK_INCONSISTENCY, [
                     'idempotency_key' => $idempotencyKey,
-                    'endpoint' => $request->path(),
+                    'endpoint' => $this->endpointLabel($request),
                 ]);
                 $telemetry->recordMetric('errors.lock_inconsistency');
                 $telemetry->endSegment($segment);
@@ -370,7 +370,7 @@ final class EnsureIdempotency
             $store->put($keys['metadata'], [
                 'created_at' => time(),
                 'hit_count' => 0,
-                'endpoint' => $request->path(),
+                'endpoint' => $this->endpointLabel($request),
                 'user_id' => $userId,
                 'client_ip' => $request->ip(),
             ], $ttl);
@@ -457,7 +457,7 @@ final class EnsureIdempotency
             if ($warnAt > 0 && $size > $warnAt) {
                 $this->alerts->dispatch(EventType::SIZE_WARNING, [
                     'size_bytes' => $size,
-                    'endpoint' => $request->path(),
+                    'endpoint' => $this->endpointLabel($request),
                 ]);
             }
         } catch (Throwable $e) {
@@ -499,9 +499,23 @@ final class EnsureIdempotency
         $this->alerts->dispatch(EventType::RESPONSE_DUPLICATE, [
             'idempotency_key' => $idempotencyKey,
             'hit_count' => $metadata['hit_count'],
-            'endpoint' => $request->path(),
+            'endpoint' => $this->endpointLabel($request),
             'method' => $request->method(),
         ]);
+    }
+
+    private function endpointLabel(Request $request): string
+    {
+        $route = $request->route();
+
+        if (is_object($route) && method_exists($route, 'getName')) {
+            $name = $route->getName();
+            if (is_string($name) && $name !== '') {
+                return $name;
+            }
+        }
+
+        return $request->method().' '.$request->path();
     }
 
     private function rehydrate(mixed $cached, string $idempotencyKey, string $status): Response

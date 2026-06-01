@@ -25,11 +25,35 @@ final class AlertDispatcher
     /** @param array<string,mixed> $context */
     public function dispatch(EventType $eventType, array $context = []): void
     {
+        $context = $this->redactContext($context);
+
         if (! $this->shouldSend($eventType, $context)) {
             return;
         }
 
         $this->events->dispatch(new IdempotencyAlertFired($eventType, $context));
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function redactContext(array $context): array
+    {
+        if (! $this->configBool($this->config, 'idempotency.alerts.redact_context', true)) {
+            return $context;
+        }
+
+        if (isset($context['idempotency_key']) && is_scalar($context['idempotency_key'])) {
+            $context['idempotency_key_hash'] = hash('sha256', (string) $context['idempotency_key']);
+            unset($context['idempotency_key']);
+        }
+
+        if (! $this->configBool($this->config, 'idempotency.alerts.include_exception_messages', false)) {
+            unset($context['message']);
+        }
+
+        return $context;
     }
 
     /** @param array<string,mixed> $context

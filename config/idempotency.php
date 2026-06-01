@@ -191,6 +191,8 @@ return [
     'alerts' => [
         'hit_threshold' => (int) env('IDEMPOTENCY_ALERT_HIT_THRESHOLD', 5),
         'cooldown' => (int) env('IDEMPOTENCY_ALERT_COOLDOWN', 3_600),
+        'redact_context' => env('IDEMPOTENCY_ALERT_REDACT_CONTEXT', true),
+        'include_exception_messages' => env('IDEMPOTENCY_ALERT_INCLUDE_EXCEPTION_MESSAGES', false),
     ],
 
     /*

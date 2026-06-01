@@ -95,6 +95,28 @@ it('fires an alert after the configured hit threshold', function () use ($uuid) 
     );
 });
 
+it('redacts idempotency keys in alerts and prefers route names for endpoints', function () use ($uuid) {
+    config(['idempotency.alerts.hit_threshold' => 1]);
+    Event::fake([IdempotencyAlertFired::class]);
+
+    Route::middleware(EnsureIdempotency::class)
+        ->post('/named-pay', fn () => response()->json(['ok' => true], 201))
+        ->name('payments.create');
+
+    $key = $uuid();
+    $headers = ['Idempotency-Key' => $key];
+
+    $this->postJson('/named-pay', ['amount' => 10], $headers);
+    $this->postJson('/named-pay', ['amount' => 10], $headers);
+
+    Event::assertDispatched(IdempotencyAlertFired::class, function (IdempotencyAlertFired $event) use ($key): bool {
+        return $event->eventType === EventType::RESPONSE_DUPLICATE
+            && $event->context['idempotency_key_hash'] === hash('sha256', $key)
+            && ! array_key_exists('idempotency_key', $event->context)
+            && $event->context['endpoint'] === 'payments.create';
+    });
+});
+
 it('honors the :scope= middleware param and isolates from the global scope', function () use ($uuid) {
     config(['idempotency.scope' => 'global']);
 

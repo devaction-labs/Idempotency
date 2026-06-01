@@ -296,7 +296,10 @@ Full event catalogue (`DevactionLabs\Idempotency\Logging\EventType`):
 | `EXCEPTION_THROWN` | Cache or handler threw during processing |
 | `MISSING_KEY` / `INVALID_KEY_FORMAT` | Client supplied a bad or absent key |
 
-Alerts have a built-in cooldown (`alerts.cooldown`, defaults to 1h) so a bad client can't flood your logs.
+Alerts have a built-in cooldown (`alerts.cooldown`, defaults to 1h) so a bad client can't flood your logs. By default,
+alert context redacts raw idempotency keys into `idempotency_key_hash` and suppresses exception messages. You can opt out
+with `alerts.redact_context=false` or `alerts.include_exception_messages=true` if your logging pipeline is already scoped
+for sensitive data.
 
 ---
 
