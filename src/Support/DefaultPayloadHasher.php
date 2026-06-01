@@ -28,6 +28,7 @@ final class DefaultPayloadHasher implements PayloadHasher
     {
         /** @var array<string,mixed> $data */
         $data = $request->all();
+        $data = $this->stripFilesFromPayload($data, $request->allFiles());
 
         foreach ($this->ignore as $path) {
             data_forget($data, $path);
@@ -68,6 +69,28 @@ final class DefaultPayloadHasher implements PayloadHasher
         return $data;
     }
 
+    /**
+     * @param  array<array-key,mixed>  $data
+     * @param  array<array-key,mixed>  $files
+     * @return array<array-key,mixed>
+     */
+    private function stripFilesFromPayload(array $data, array $files): array
+    {
+        foreach ($files as $field => $file) {
+            if ($file instanceof UploadedFile) {
+                unset($data[$field]);
+
+                continue;
+            }
+
+            if (is_array($file) && isset($data[$field]) && is_array($data[$field])) {
+                $data[$field] = $this->stripFilesFromPayload($data[$field], $file);
+            }
+        }
+
+        return $data;
+    }
+
     /** @return array<string,mixed> */
     private function fingerprintFiles(Request $request): array
     {
@@ -75,13 +98,40 @@ final class DefaultPayloadHasher implements PayloadHasher
 
         foreach ($request->allFiles() as $field => $file) {
             if (is_array($file)) {
-                $out[$field] = array_map(fn (UploadedFile $f) => $this->fileFingerprint($f), $file);
+                $out[$field] = $this->fingerprintFileArray($file);
 
                 continue;
             }
 
             if ($file instanceof UploadedFile) {
                 $out[$field] = $this->fileFingerprint($file);
+            }
+        }
+
+        if ($this->sortKeys) {
+            ksort($out);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<array-key,mixed>  $files
+     * @return array<array-key,mixed>
+     */
+    private function fingerprintFileArray(array $files): array
+    {
+        $out = [];
+
+        foreach ($files as $field => $file) {
+            if ($file instanceof UploadedFile) {
+                $out[$field] = $this->fileFingerprint($file);
+
+                continue;
+            }
+
+            if (is_array($file)) {
+                $out[$field] = $this->fingerprintFileArray($file);
             }
         }
 
